@@ -28,7 +28,7 @@ Meteor.isClient && Tinytest.add('Router - dispatch - current', function (test) {
     var current;
 
     if (Meteor.isClient) {
-      Deps.autorun(function (c) {
+      Tracker.autorun(function (c) {
         current = router.current();
       });
 
@@ -41,7 +41,7 @@ Meteor.isClient && Tinytest.add('Router - dispatch - current', function (test) {
       test.instanceOf(call.stack, Iron.MiddlewareStack, 'stack is a MiddlewareStack');
 
       test.isNull(current, 'current is null until a flush');
-      Deps.flush();
+      Tracker.flush();
       test.instanceOf(current, Iron.RouteController, 'current is instance of Iron.RouteController');
       test.equal(current.request, req, 'request is set');
       test.equal(current.response, res, 'response is set');
@@ -53,7 +53,7 @@ Meteor.isClient && Tinytest.add('Router - dispatch - current', function (test) {
 
       router(req, res, next);
       test.isTrue(stopped, 'previous controller stopped');
-      Deps.flush();
+      Tracker.flush();
       test.isTrue(oldCurrent !== current, 'current controller is not the old controller');
     }
 

@@ -1,22 +1,25 @@
 # Iron.Router
 
-A router that works on the server and the browser, designed specifically for
-[Meteor](https://github.com/meteor/meteor).
+A complete client/server routing system for Meteor with layouts, middleware, and reactive templates.
+
+**Version 2.0** - All Iron packages consolidated into one with full Meteor 3.0+ support!
 
 
 ## Quick Start
-You can install iron:router using Meteor's package management system:
+You can install Galvanized Iron Router using Meteor's package management system:
 
 ```bash
-> meteor add iron:router
+> meteor add vlasky:galvanized-iron-router
 ```
 
-To update iron:router to the latest version you can use the `meteor update`
+To update Galvanized Iron Router to the latest version you can use the `meteor update`
 command:
 
 ```bash
-> meteor update iron:router
+> meteor update vlasky:galvanized-iron-router
 ```
+
+**Note:** Starting with v2.0, Galvanized Iron Router includes all functionality that was previously split across multiple iron: packages (iron:core, iron:layout, iron:controller, etc.). You no longer need to install these separately.
 
 Start by creating a route in your JavaScript file. By default, routes are
 created for the client and will run in the browser.

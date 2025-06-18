@@ -1,19 +1,51 @@
-Iron.Router
+Galvanized Iron Router
 ==============================================================================
 
-A router that works on the server and the browser, designed specifically for <a href="https://github.com/meteor/meteor" target="_blank">Meteor</a>
+A complete client/server routing system for Meteor with layouts, middleware, and reactive templates.
 
-## The Iron.Router Guide
-Detailed explanations of router features can be found in the [Guide](http://iron-meteor.github.io/iron-router/).
+**Version 2.0** - Iron Router made rust-resistant and long-lasting for Meteor 3.0+!
+
+Galvanized Iron Router is a fork of the classic Iron Router package, giving it a new lease of life by making it fully compatible with Meteor 3.0 and beyond. Just as galvanizing iron makes it rust-resistant and longer lasting, this fork ensures Iron Router continues to work reliably with modern Meteor applications.
+
+## The Iron Router Guide
+Detailed explanations of router features can be found in the original [Iron Router Guide](http://iron-meteor.github.io/iron-router/).
 
 ## Installation
 
 ```shell
-meteor add iron:router
+meteor add vlasky:galvanized-iron-router
 ```
 
+## Compatibility
+
+Galvanized Iron Router supports:
+- **Meteor 2.0+** (stable)
+- **Meteor 3.0+** (compatible with Fibers removal and Express 5)
+
+For Meteor 3.0+ projects, Galvanized Iron Router automatically adapts to:
+- Async/await execution model (no Fibers dependency)
+- Express 5 body parsing (when available)
+
+## Migrating from iron:router
+
+Migrating from `iron:router` to `vlasky:galvanized-iron-router` is simple:
+
+```bash
+meteor remove iron:router
+meteor add vlasky:galvanized-iron-router
+```
+
+That's it! Your existing code will work without any changes. Galvanized Iron Router maintains 100% API compatibility with the original Iron Router.
+
 ## Examples
-There are several examples in the [examples folder](examples).
+There are comprehensive examples in the [examples folder](examples) organized by feature:
+
+- **[Router Examples](examples/router)** - Core routing functionality, data contexts, layouts, middleware
+- **[Controller Examples](examples/controller)** - Route controllers, inheritance, wait lists
+- **[Layout Examples](examples/layout)** - Dynamic layouts and yield regions
+- **[Location Examples](examples/location)** - Reactive URL handling and browser state
+- **[Template Examples](examples/dynamic-template)** - Dynamic template rendering
+- **[Middleware Examples](examples/middleware)** - Connect-style middleware stack
 
 ## Quick Start
 Create some routes in a client/server JavaScript file:
@@ -45,6 +77,42 @@ Router.route('/restful', {where: 'server'})
   });
 
 ```
+
+## What's New in Version 2.0
+
+Galvanized Iron Router v2.0 is a **major consolidation release** that combines all Iron packages into a single, comprehensive routing system:
+
+### **Consolidated Packages**
+All previously separate packages are now included:
+- `iron:core` - Namespace and utilities
+- `iron:url` - URL compilation and utilities
+- `iron:middleware-stack` - Connect-style middleware
+- `iron:dynamic-template` - Dynamic template rendering
+- `iron:layout` - Layout system with yield regions
+- `iron:location` - Reactive URL and browser state
+- `iron:controller` - Route controllers with reactive state
+
+### **Benefits**
+- ✅ **Single installation**: Just `meteor add vlasky:galvanized-iron-router`
+- ✅ **No dependency conflicts**: All components perfectly integrated
+- ✅ **Simplified maintenance**: One package to update
+- ✅ **Better performance**: Optimized load order and no inter-package overhead
+
+### **Migration from v1.x**
+**No changes needed!** Your existing code works unchanged. Simply update your packages:
+
+```bash
+meteor remove iron:core iron:layout iron:controller iron:location iron:middleware-stack iron:url iron:dynamic-template
+meteor add vlasky:galvanized-iron-router@2.0.0
+```
+
+## Migrating to Meteor 3.0+
+
+Iron Router is fully compatible with Meteor 3.0+. No code changes are required in your routes or controllers. The package automatically handles:
+
+- Fibers removal (server-side routing continues to work seamlessly)
+- Express 5 transition (body parsing is automatically updated)
+- All existing route definitions, hooks, and controllers work unchanged
 
 ## Migrating from 0.9.4
 
