@@ -1,3 +1,16 @@
+v2.0.1 / 2025-6-25
+==================
+  * Fixes route data contexts not flowing to rendered templates in Meteor 3.0
+  * RouteController.prototype.render() now explicitly passes data context to templates due to suspected breaking change in Blaze 3.0.0 that may have affected implicit data context inheritance through view hierarchies
+
+v2.0.0 / 2025-6-18
+==================
+  * Iron Router made rust-resistant for Meteor 3.0+
+  * Complete rewrite for Meteor 3.0 compatibility
+  * Consolidated multiple Iron packages into one
+  * Added support for async/await patterns
+  * Removed Fibers dependencies
+
 v1.1.2 / 2017-2-12
 ==================
   * Bump Iron:Url version
