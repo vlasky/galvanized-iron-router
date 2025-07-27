@@ -23,6 +23,7 @@ Package.onUse(function (api) {
   api.use('reactive-dict', 'client');
   api.use('jquery@1.11.11 || 3.0.0', 'client');
   api.use('random', 'client');
+  api.use('random', 'server');
 
   // UI/Template dependencies
   api.use('blaze@2.4.0 || 3.0.0');
