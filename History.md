@@ -1,3 +1,7 @@
+v2.0.2 / 2025-8-01
+==================
+* Meteor package random now declared for use on server side as well.
+
 v2.0.1 / 2025-6-25
 ==================
   * Fixes route data contexts not flowing to rendered templates in Meteor 3.0
