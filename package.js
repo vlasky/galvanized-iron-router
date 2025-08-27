@@ -17,9 +17,9 @@ Package.onUse(function (api) {
   api.use('ejson');
   api.use('meteor');
   api.use('random');
+  api.use('tracker');
 
   // Client-side dependencies
-  api.use('tracker', 'client');
   api.use('reactive-var', 'client');
   api.use('reactive-dict', 'client');
   api.use('jquery@1.11.11 || 3.0.0', 'client');
