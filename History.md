@@ -1,3 +1,7 @@
+v2.0.3 / 2025-9-13
+==================
+* Meteor package tracker now declared for use on server side as well.
+
 v2.0.2 / 2025-8-01
 ==================
 * Meteor package random now declared for use on server side as well.
