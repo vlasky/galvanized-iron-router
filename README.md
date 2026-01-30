@@ -106,6 +106,46 @@ meteor remove iron:core iron:layout iron:controller iron:location iron:middlewar
 meteor add vlasky:galvanized-iron-router@2.0.0
 ```
 
+## ES6 Module Support for Controllers
+
+When using ES6 modules, controllers are no longer automatically available on the global scope. Galvanized Iron Router provides a controller registry so you don't need to pollute the global `window` object.
+
+### Registering Controllers
+
+```javascript
+// client/controllers.js
+import { DashboardController } from './management/dashboard.js';
+import { StoreController } from './management/store.js';
+import { UsersController } from './management/users.js';
+
+Router.registerControllers([
+  DashboardController,
+  StoreController,
+  UsersController
+]);
+```
+
+Routes work exactly as before - controller names are extracted automatically from the class:
+
+```javascript
+Router.route('/dashboard', { controller: 'DashboardController' });
+Router.route('/store/:id', { controller: 'StoreController' });
+```
+
+For anonymous controllers or custom names, use the two-argument form:
+
+```javascript
+Router.registerController('MyController', RouteController.extend({ ... }));
+```
+
+### How It Works
+
+When resolving a controller by name, the router checks:
+1. **Controller registry** - Controllers registered via `registerControllers()`
+2. **Global namespace** - Falls back to `window[controllerName]` for backwards compatibility
+
+This means existing code that assigns controllers to `window` continues to work unchanged.
+
 ## Migrating to Meteor 3.0+
 
 Iron Router is fully compatible with Meteor 3.0+. No code changes are required in your routes or controllers. The package automatically handles:

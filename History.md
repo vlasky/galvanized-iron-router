@@ -1,3 +1,10 @@
+v2.0.4 / 2025-1-28
+==================
+* Added controller registry for ES6 module support
+  * `Router.registerControllers([...])` - register an array of controllers
+  * `Router.registerController(name, Controller)` - register with explicit name
+  * Eliminates the need to attach controllers to `window` when using ES6 modules
+
 v2.0.3 / 2025-9-13
 ==================
 * Meteor package tracker now declared for use on server side as well.

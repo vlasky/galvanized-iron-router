@@ -1,0 +1,5 @@
+{
+  "devDependencies": {
+    "@types/meteor": "^2.9.10"
+  }
+}
