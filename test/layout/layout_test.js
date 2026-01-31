@@ -113,12 +113,12 @@ Tinytest.add('Layout - data - render always clears data', function (test) {
 
   withRenderedTemplate(layout.create(), function (el) {
     layout.template('LayoutOne');
-    layout.render('One', {data: 'firstData'});
+    layout.render('LayoutTestOne', {data: 'firstData'});
     Tracker.flush();
     test.equal(el.innerHTML.compact(), 'layout-One-firstData-');
 
     // rendering with no data, should now not have data
-    layout.render('One')
+    layout.render('LayoutTestOne')
     Tracker.flush();
     test.equal(el.innerHTML.compact(), 'layout-One--');
   });
@@ -161,12 +161,12 @@ Tinytest.add('Layout - JavaScript layout', function (test) {
     test.equal(el.innerHTML.compact(), 'layout--');
 
     // render the One template into the main region
-    layout.render('One');
+    layout.render('LayoutTestOne');
     Tracker.flush();
     test.equal(el.innerHTML.compact(), 'layout--One--');
 
     // now render Two into the footer region
-    layout.render('Two', {to: 'footer'});
+    layout.render('LayoutTestTwo', {to: 'footer'});
     Tracker.flush();
     test.equal(el.innerHTML.compact(), 'layout--One--Two--');
 
@@ -177,11 +177,11 @@ Tinytest.add('Layout - JavaScript layout', function (test) {
     test.equal(el.innerHTML.compact(), 'layout-DATA-One-DATA-Two-DATA-');
 
     // and finally let's override some specific region data contexts! 
-    layout.render('One', {data: 'ONE'});
+    layout.render('LayoutTestOne', {data: 'ONE'});
     Tracker.flush();
     test.equal(el.innerHTML.compact(), 'layout-DATA-One-ONE-Two-DATA-');
 
-    layout.render('Two', {to: 'footer', data: 'TWO'});
+    layout.render('LayoutTestTwo', {to: 'footer', data: 'TWO'});
     Tracker.flush();
     test.equal(el.innerHTML.compact(), 'layout-DATA-One-ONE-Two-TWO-');
   });
@@ -273,11 +273,11 @@ Tinytest.add('Layout - has, clear and clearAll', function (test) {
     test.isFalse(layout.has('bogus'));
 
     // render the One template into the main region
-    layout.render('One');
+    layout.render('LayoutTestOne');
     Tracker.flush();
 
     // now render Two into the footer region
-    layout.render('Two', {to: 'footer'});
+    layout.render('LayoutTestTwo', {to: 'footer'});
     Tracker.flush();
 
     // make sure everything rendered correctly
@@ -294,8 +294,8 @@ Tinytest.add('Layout - has, clear and clearAll', function (test) {
     test.equal(el.innerHTML.compact(), 'layout-');
 
     // now build it back up again and clearAll
-    layout.render('One');
-    layout.render('Two', {to: 'footer'});
+    layout.render('LayoutTestOne');
+    layout.render('LayoutTestTwo', {to: 'footer'});
     Tracker.flush();
     test.equal(el.innerHTML.compact(), 'layout-One--Two--');
 
@@ -324,7 +324,7 @@ Tinytest.add('Layout - hasRegion', function (test) {
     Tracker.flush();
     test.equal(el.innerHTML.compact(), 'no', 'hasRegion mis-reported true');
     
-    layout.render('One', {to: 'test'});
+    layout.render('LayoutTestOne', {to: 'test'});
     Tracker.flush();
     test.equal(el.innerHTML.compact(), 'yes', 'hasRegion mis-reported false');
   });

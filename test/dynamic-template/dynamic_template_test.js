@@ -437,11 +437,12 @@ Tinytest.add('DynamicTemplate - lookup hosts', function (test) {
     // then add a controller
     tmpl._setLookupHost(new Controller);
 
+    // Flush twice to ensure all reactive updates and afterFlush callbacks complete
     Tracker.flush();
-    Deps.afterFlush(function () {
-      test.equal(counter, 1);
-      test.equal(helperRunCount, 1);
-      test.equal(el.innerHTML.compact(), '1');
-    });
+    Tracker.flush();
+
+    test.equal(counter, 1);
+    test.equal(helperRunCount, 1);
+    test.equal(el.innerHTML.compact(), '1');
   });
 });

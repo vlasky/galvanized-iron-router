@@ -109,13 +109,20 @@ Tinytest.add('MiddlewareStack - mounting paths', function (test) {
   if (Meteor.isClient) {
     // add a mounted handler at mountpath /foo
     stack.push('/foo', function (req, res, next) {
-      calls.push({args: EJSON.clone(arguments), thisArg: EJSON.clone(this)});
+      // Clone only the properties we test (avoiding EJSON issues with functions)
+      calls.push({
+        args: [{url: req.url, originalUrl: req.originalUrl}],
+        thisArg: {url: this.url, originalUrl: this.originalUrl}
+      });
       next();
     }, {mount: true});
 
     // add a regular handler at /foo/bar/baz
     stack.push('/foo/bar/baz', function (req, res, next) {
-      calls.push({args: EJSON.clone(arguments), thisArg: EJSON.clone(this)});
+      calls.push({
+        args: [{url: req.url, originalUrl: req.originalUrl}],
+        thisArg: {url: this.url, originalUrl: this.originalUrl}
+      });
     });
 
     stack.dispatch('/foo/bar/baz', {});
@@ -145,13 +152,20 @@ Tinytest.add('MiddlewareStack - mounting paths', function (test) {
 
   if (Meteor.isServer) {
     stack.push('/foo', function (req, res, next) {
-      calls.push({args: EJSON.clone(arguments), thisArg: EJSON.clone(this)});
+      // Clone only the properties we test (avoiding EJSON issues with functions)
+      calls.push({
+        args: [{url: req.url, originalUrl: req.originalUrl}],
+        thisArg: {url: this.url, originalUrl: this.originalUrl}
+      });
       next();
     }, {mount: true, where: 'server'});
 
     // add a regular handler at /foo/bar/baz
     stack.push('/foo/bar/baz', function (req, res, next) {
-      calls.push({args: EJSON.clone(arguments), thisArg: EJSON.clone(this)});
+      calls.push({
+        args: [{url: req.url, originalUrl: req.originalUrl}],
+        thisArg: {url: this.url, originalUrl: this.originalUrl}
+      });
     }, {where: 'server'});
 
     stack.dispatch('/foo/bar/baz', {});

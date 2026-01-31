@@ -152,7 +152,8 @@ Tinytest.add('MiddlewareStack - dispatch callback', function (test) {
   }
 });
 
-if (Meteor.isServer) {
+// Fibers test only runs on Meteor < 3.0 where Fibers are available
+if (Meteor.isServer && !Meteor.isFibersDisabled) {
   var Fiber = Npm.require('fibers');
   Tinytest.addAsync('MiddlewareStack - async next maintains fibers', function (test, done) {
     var envVar = new Meteor.EnvironmentVariable;

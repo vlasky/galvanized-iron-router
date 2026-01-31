@@ -1,5 +1,8 @@
 {
   "devDependencies": {
-    "@types/meteor": "^2.9.10"
+    "@eslint/js": "^9.39.2",
+    "@types/meteor": "^2.9.10",
+    "eslint": "^9.39.2",
+    "globals": "^17.2.0"
   }
 }
