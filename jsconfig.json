@@ -1,0 +1,17 @@
+{
+  "compilerOptions": {
+    "checkJs": true,
+    "allowJs": true,
+    "noEmit": true,
+    "target": "ES2020",
+    "module": "ESNext",
+    "moduleResolution": "node",
+    "skipLibCheck": true,
+    "baseUrl": ".",
+    "types": ["meteor", "node"],
+    "lib": ["ES2020", "DOM"],
+    "typeRoots": ["./types", "./node_modules/@types"]
+  },
+  "include": ["lib/**/*.js", "types/**/*.d.ts", "index.d.ts"],
+  "exclude": ["node_modules", ".npm", ".meteor", "lib/url/old_compiler.js", "lib/url/compiler.js"]
+}

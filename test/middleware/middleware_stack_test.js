@@ -1,5 +1,5 @@
 Tinytest.add('MiddlewareStack - handler names and paths', function (test) {
-  var handler;
+  let handler;
 
   // path is a name
   handler = new Handler('home', {});
@@ -23,7 +23,7 @@ Tinytest.add('MiddlewareStack - create and find by name', function (test) {
   // basically just test that a handler gets created and keyed by name if thee's
   // a name. Also test duplicate named handlers throws an error.
 
-  var stack = new Iron.MiddlewareStack;
+  const stack = new Iron.MiddlewareStack;
   stack._create('/items', function () {}, {name: 'items'});
   test.isTrue(stack.findByName('items'));
 
@@ -34,8 +34,8 @@ Tinytest.add('MiddlewareStack - create and find by name', function (test) {
 });
 
 Tinytest.add('MiddlewareStack - push', function (test) {
-  var stack = new Iron.MiddlewareStack;
-  var fns = [function () {}, function () {}];
+  const stack = new Iron.MiddlewareStack;
+  const fns = [function () {}, function () {}];
   stack.push(fns[0]);
   test.equal(stack._stack[0].handle, fns[0]);
   stack.push(fns[1]);
@@ -43,8 +43,8 @@ Tinytest.add('MiddlewareStack - push', function (test) {
 });
 
 Tinytest.add('MiddlewareStack - insertAt', function (test) {
-  var stack = new Iron.MiddlewareStack;
-  var fns = [function () {}, function () {}, function () {}];
+  const stack = new Iron.MiddlewareStack;
+  const fns = [function () {}, function () {}, function () {}];
   stack.push(fns[0]);
   stack.push(fns[2]);
 
@@ -53,8 +53,8 @@ Tinytest.add('MiddlewareStack - insertAt', function (test) {
 });
 
 Tinytest.add('MiddlewareStack - insertBefore', function (test) {
-  var stack = new Iron.MiddlewareStack;
-  var fns = [function one() {}, function two() {}, function three() {}];
+  const stack = new Iron.MiddlewareStack;
+  const fns = [function one() {}, function two() {}, function three() {}];
   stack.push(fns[0]);
   stack.push(fns[2]);
   stack.insertBefore('three', fns[1]);
@@ -62,8 +62,8 @@ Tinytest.add('MiddlewareStack - insertBefore', function (test) {
 });
 
 Tinytest.add('MiddlewareStack - insertAfter ', function (test) {
-  var stack = new Iron.MiddlewareStack;
-  var fns = [function one() {}, function two() {}, function three() {}];
+  const stack = new Iron.MiddlewareStack;
+  const fns = [function one() {}, function two() {}, function three() {}];
   stack.push(fns[0]);
   stack.push(fns[2]);
   stack.insertAfter('one', fns[1]);
@@ -71,8 +71,8 @@ Tinytest.add('MiddlewareStack - insertAfter ', function (test) {
 });
 
 Tinytest.add('MiddlewareStack - dispatch iteration with this.next', function (test) {
-  var stack = new Iron.MiddlewareStack;
-  var calls = [];
+  const stack = new Iron.MiddlewareStack;
+  const calls = [];
 
   if (Meteor.isClient) {
     stack.push(function m1 () {
@@ -118,9 +118,9 @@ Tinytest.add('MiddlewareStack - dispatch iteration with this.next', function (te
 });
 
 Tinytest.add('MiddlewareStack - dispatch callback', function (test) {
-  var stack = new Iron.MiddlewareStack;
-  var calls = [];
-  
+  const stack = new Iron.MiddlewareStack;
+  const calls = [];
+
   if (Meteor.isClient) {
     stack.push(function m1 () {
       calls.push('m1');
@@ -154,13 +154,13 @@ Tinytest.add('MiddlewareStack - dispatch callback', function (test) {
 
 // Fibers test only runs on Meteor < 3.0 where Fibers are available
 if (Meteor.isServer && !Meteor.isFibersDisabled) {
-  var Fiber = Npm.require('fibers');
+  const Fiber = Npm.require('fibers');
   Tinytest.addAsync('MiddlewareStack - async next maintains fibers', function (test, done) {
-    var envVar = new Meteor.EnvironmentVariable;
-    
+    const envVar = new Meteor.EnvironmentVariable;
+
     envVar.withValue(true, function () {
-      var stack = new Iron.MiddlewareStack;
-      
+      const stack = new Iron.MiddlewareStack;
+
       test.isTrue(envVar.getOrNullIfOutsideFiber());
       stack.push(function(req, res, next) {
         // break out of the current fiber
@@ -173,7 +173,7 @@ if (Meteor.isServer && !Meteor.isFibersDisabled) {
         test.isTrue(envVar.getOrNullIfOutsideFiber());
         this.next();
       }, {where: 'server'});
-    
+
       stack.dispatch('/', {}, function () {
         test.isTrue(envVar.getOrNullIfOutsideFiber());
         done();

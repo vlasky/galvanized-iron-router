@@ -1,24 +1,24 @@
 Tinytest.add('MiddlewareStack - dispatch', function (test) {
-  var stack = new Iron.MiddlewareStack;
-  var calls = {};
-  var call = function (name) { 
+  const stack = new Iron.MiddlewareStack;
+  const calls = {};
+  const call = function (name) {
     calls[name] = calls[name] || 0;
     calls[name]++;
   };
 
   // client middleware
-  stack.push(function m1 (req, res, next) { 
-    call('m1'); 
+  stack.push(function m1 (req, res, next) {
+    call('m1');
     next();
   });
 
-  stack.push(function m2 (req, res, next) { 
+  stack.push(function m2 (req, res, next) {
     call('m2');
     this.next();
   });
 
   // client handlers
-  var params;
+  let params;
   stack.push('/items/:id', function item (req, res, next) {
     call('item');
     params = this.params;
@@ -35,7 +35,7 @@ Tinytest.add('MiddlewareStack - dispatch', function (test) {
     call('server');
   }, { where: 'server' });
 
-  var thisArg = {};
+  const thisArg = {};
 
   if (Meteor.isClient) {
     stack.dispatch('/', {});
@@ -52,7 +52,7 @@ Tinytest.add('MiddlewareStack - dispatch', function (test) {
     test.equal(calls.item2, 1, 'item2 not called');
     test.isFalse(calls.server);
 
-    var params = thisArg.params;
+    const params = thisArg.params;
     test.equal(params.id, "1");
 
     stack.onServerDispatch(function () {
@@ -73,8 +73,8 @@ Tinytest.add('MiddlewareStack - dispatch', function (test) {
 
 Tinytest.add('MiddlewareStack - dispatch error handling', function (test) {
   if (Meteor.isClient) {
-    var stack = new Iron.MiddlewareStack;
-    var calls = [];
+    const stack = new Iron.MiddlewareStack;
+    const calls = [];
     stack.push(function (req, res, next) {
       calls.push(1);
       throw new Error('test');
@@ -97,14 +97,14 @@ Tinytest.add('MiddlewareStack - dispatch error handling', function (test) {
     // first fn throws an error
     test.equal(calls[0], 1);
 
-    // rest of middleware skipped 
+    // rest of middleware skipped
     test.equal(calls[1], 3);
   }
 });
 
 Tinytest.add('MiddlewareStack - mounting paths', function (test) {
-  var stack = new Iron.MiddlewareStack;
-  var calls = [];
+  const stack = new Iron.MiddlewareStack;
+  const calls = [];
 
   if (Meteor.isClient) {
     // add a mounted handler at mountpath /foo
@@ -195,9 +195,9 @@ Tinytest.add('MiddlewareStack - mounting paths', function (test) {
 });
 
 Tinytest.add('MiddlewareStack - append with options', function (test) {
-  var fn1 = function () {};
-  var fn2 = function () {};
-  var stack = new Iron.MiddlewareStack;
+  const fn1 = function () {};
+  const fn2 = function () {};
+  const stack = new Iron.MiddlewareStack;
   stack.append(fn1, fn2, {where: 'server'});
 
   test.equal(stack._stack[0].where, 'server');

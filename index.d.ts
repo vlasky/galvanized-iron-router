@@ -168,7 +168,16 @@ declare class Route {
 
   // Properties
   readonly name: string;
-  readonly options: RouteOptions;
+  options: RouteOptions;
+  router: Router;
+  handler: Iron.Url;
+
+  // Internal properties
+  _path: string | RegExp;
+  _methods: { [key: string]: Function };
+  _actionStack: MiddlewareStack;
+  _beforeStack: MiddlewareStack;
+  _afterStack: MiddlewareStack;
 }
 
 // Controller options
@@ -198,6 +207,9 @@ declare class WaitList {
 declare class Controller {
   constructor(options?: ControllerOptions);
 
+  /** Initialize the controller */
+  init(options?: ControllerOptions): void;
+
   /** Set the layout template */
   layout(template: string, options?: LayoutOptions): { data(value: (() => any) | object): void };
 
@@ -217,12 +229,15 @@ declare class Controller {
   static extend(props: object): typeof Controller;
   static events(events: { [key: string]: Function }): typeof Controller;
   static helpers(helpers: { [key: string]: Function }): typeof Controller;
+  static _helpers?: { [key: string]: Function };
+  static __super__?: any;
 
   // Properties
   _layout: Layout;
   options: ControllerOptions;
   state?: ReactiveDict;
   _waitlist?: WaitList;
+  _isController: boolean;
 }
 
 // RouteController class
@@ -661,10 +676,21 @@ declare class Router {
     dataNotFound: (router: Router, options?: object) => void;
     [key: string]: (router: Router, options?: object) => void;
   };
+  static bodyParser: any;
 
   // Properties
   routes: Route[];
   options: RouterOptions;
+
+  // Internal properties
+  _currentController: RouteController | null;
+  _currentRoute: Route | null;
+  _currentDep: Tracker.Dependency;
+  _layout: Layout;
+  _stack: MiddlewareStack;
+  _globalHooks: { [type: string]: HookFunction[] };
+  _locationComputation: Tracker.Computation | null;
+  _controllerRegistry: Map<string, typeof RouteController>;
 }
 
 // Global Router instance

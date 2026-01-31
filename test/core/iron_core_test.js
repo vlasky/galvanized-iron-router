@@ -56,6 +56,32 @@ Tinytest.add('Utils - extend', function (test) {
   test.equal(calls.length, 1);
 });
 
+Tinytest.add('Utils - extend with ES6 class', function (test) {
+  var calls = [];
+
+  class ParentClass {
+    constructor() {
+      calls.push('Parent');
+    }
+  }
+
+  ParentClass.parentStaticProp = true;
+
+  Child = Iron.utils.extend(ParentClass, {
+    constructor: function () {
+      calls.push('Child');
+    },
+    childProp: true
+  });
+
+  var c = new Child;
+  test.isTrue(c instanceof ParentClass);
+  test.isTrue(Child.parentStaticProp);
+  test.isTrue(c.childProp);
+  test.equal(calls[0], 'Parent');
+  test.equal(calls[1], 'Child');
+});
+
 Tinytest.add('Utils - global', function (test) {
   var g = Iron.utils.global;
 

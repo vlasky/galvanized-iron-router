@@ -2,7 +2,7 @@ String.prototype.compact = function () {
   return this.trim().replace(/\s/g, '').replace(/\n/g, '');
 };
 
-var ReactiveVar = function (value) {
+const ReactiveVar = function (value) {
   this._value = value;
   this._dep = new Tracker.Dependency;
 };
@@ -25,13 +25,13 @@ ReactiveVar.prototype.clear = function () {
 };
 
 // a reactive template variable we can use
-var reactiveTemplate = new ReactiveVar;
+const reactiveTemplate = new ReactiveVar;
 
 // a reactive data variable we can use
-var reactiveData = new ReactiveVar;
+const reactiveData = new ReactiveVar;
 
-var withDiv = function (callback) {
-  var el = document.createElement('div');
+const withDiv = function (callback) {
+  const el = document.createElement('div');
   document.body.appendChild(el);
   try {
     callback(el);
@@ -40,8 +40,8 @@ var withDiv = function (callback) {
   }
 };
 
-var withRenderedTemplate = function (template, callback) {
-  withDiv(function (el) {
+const withRenderedTemplate = function (template, callback) {
+  withDiv((el) => {
     template = _.isString(template) ? Template[template] : template;
     Blaze.render(template, el);
     Tracker.flush();
@@ -50,7 +50,7 @@ var withRenderedTemplate = function (template, callback) {
 };
 
 Tinytest.add('Layout - Template layout with block content', function (test) {
-  withRenderedTemplate('BlockLayout', function (el) {
+  withRenderedTemplate('BlockLayout', (el) => {
     test.equal(el.innerHTML.compact(), 'layout-main-footer');
   });
 });
@@ -61,7 +61,7 @@ Template.BlockLayoutWithData.helpers({
   }
 });
 Tinytest.add('Layout - Template layout with block content and data', function (test) {
-  withRenderedTemplate('BlockLayoutWithData', function (el) {
+  withRenderedTemplate('BlockLayoutWithData', (el) => {
     test.equal(el.innerHTML.compact(), 'layout-data-main-data-footer-data');
   });
 });
@@ -75,14 +75,14 @@ Template.BlockLayoutWithOuterData.helpers({
 
 Tinytest.add('Layout - data - yield inherits data from outside by default', function (test) {
   Template.BlockLayoutWithOuterData.data = undefined;
-  withRenderedTemplate('BlockLayoutWithOuterData', function (el) {
+  withRenderedTemplate('BlockLayoutWithOuterData', (el) => {
     test.equal(el.innerHTML.compact(), 'layout-outerData-inner-outerData');
   });
 });
 
 Tinytest.add('Layout - data - yield inherits data layout if defined', function (test) {
   Template.BlockLayoutWithOuterData.data = 'layoutData';
-  withRenderedTemplate('BlockLayoutWithOuterData', function (el) {
+  withRenderedTemplate('BlockLayoutWithOuterData', (el) => {
     test.equal(el.innerHTML.compact(), 'layout-layoutData-inner-layoutData');
   });
 });
@@ -96,22 +96,22 @@ Template.BlockLayoutWithOuterDataAndWith.helpers({
 
 Tinytest.add('Layout - data - with in context trumps all else', function (test) {
   Template.BlockLayoutWithOuterDataAndWith.data = undefined;
-  withRenderedTemplate('BlockLayoutWithOuterDataAndWith', function (el) {
+  withRenderedTemplate('BlockLayoutWithOuterDataAndWith', (el) => {
     test.equal(el.innerHTML.compact(), 'layout-outerData-inner-innerData');
   });
 });
 
 Tinytest.add('Layout - data - with in context trumps layout data', function (test) {
   Template.BlockLayoutWithOuterDataAndWith.data = 'layoutData';
-  withRenderedTemplate('BlockLayoutWithOuterDataAndWith', function (el) {
+  withRenderedTemplate('BlockLayoutWithOuterDataAndWith', (el) => {
     test.equal(el.innerHTML.compact(), 'layout-layoutData-inner-innerData');
   });
 });
 
 Tinytest.add('Layout - data - render always clears data', function (test) {
-  var layout = new Iron.Layout;
+  const layout = new Iron.Layout;
 
-  withRenderedTemplate(layout.create(), function (el) {
+  withRenderedTemplate(layout.create(), (el) => {
     layout.template('LayoutOne');
     layout.render('LayoutTestOne', {data: 'firstData'});
     Tracker.flush();
@@ -126,11 +126,11 @@ Tinytest.add('Layout - data - render always clears data', function (test) {
 
 // see https://github.com/EventedMind/iron-router/issues/693
 Tinytest.add('Layout - data - in-place changes to data are not missed', function(test) {
-  var layout = new Iron.Layout;
-  var Posts = new Meteor.Collection(null);
+  const layout = new Iron.Layout;
+  const Posts = new Meteor.Collection(null);
   Posts.insert({foo: 'bar'});
-  
-  withRenderedTemplate(layout.create(), function (el) {
+
+  withRenderedTemplate(layout.create(), (el) => {
     layout.template('LayoutOne');
     layout.data(function() {
       return Posts.findOne();
@@ -138,8 +138,8 @@ Tinytest.add('Layout - data - in-place changes to data are not missed', function
     layout.render('OneFoo');
     Tracker.flush();
     test.equal(el.innerHTML.compact(), 'layout-One-bar-');
-    
-    var post = layout.data(); // grab the internal reference, if exists
+
+    const post = layout.data(); // grab the internal reference, if exists
     post.foo = 'baz';
     Posts.update(post._id, {$set: {foo: post.foo}});
     Tracker.flush();
@@ -149,9 +149,9 @@ Tinytest.add('Layout - data - in-place changes to data are not missed', function
 
 
 Tinytest.add('Layout - JavaScript layout', function (test) {
-  var layout = new Iron.Layout;
+  const layout = new Iron.Layout;
 
-  withRenderedTemplate(layout.create(), function (el) {
+  withRenderedTemplate(layout.create(), (el) => {
     // starts off empty
     test.equal(el.innerHTML.compact(), '');
 
@@ -176,7 +176,7 @@ Tinytest.add('Layout - JavaScript layout', function (test) {
     Tracker.flush();
     test.equal(el.innerHTML.compact(), 'layout-DATA-One-DATA-Two-DATA-');
 
-    // and finally let's override some specific region data contexts! 
+    // and finally let's override some specific region data contexts!
     layout.render('LayoutTestOne', {data: 'ONE'});
     Tracker.flush();
     test.equal(el.innerHTML.compact(), 'layout-DATA-One-ONE-Two-DATA-');
@@ -188,12 +188,12 @@ Tinytest.add('Layout - JavaScript layout', function (test) {
 });
 
 Tinytest.add('Layout - JavaScript rendering transactions', function (test) {
-  var layout = new Iron.Layout({template: 'RenderingTransactionsLayout'});
+  const layout = new Iron.Layout({template: 'RenderingTransactionsLayout'});
 
 
-  withRenderedTemplate(layout.create(), function (el) {
+  withRenderedTemplate(layout.create(), (el) => {
     // start the transaction and provide an oncomplete callback
-    var calls = [];
+    const calls = [];
     layout.beginRendering(function onComplete(regions) {
       calls.push({
         regions: regions
@@ -211,13 +211,13 @@ Tinytest.add('Layout - JavaScript rendering transactions', function (test) {
 });
 
 Tinytest.add('Layout - rendering transactions multiple calls to beginRendering', function (test) {
-  var layout = new Iron.Layout({template: 'RenderingTransactionsLayout'});
+  const layout = new Iron.Layout({template: 'RenderingTransactionsLayout'});
 
-  withRenderedTemplate(layout.create(), function (el) {
+  withRenderedTemplate(layout.create(), (el) => {
     // start the transaction and provide an oncomplete callback
-    var calls = [];
+    const calls = [];
 
-    var onComplete = function onComplete (regions) {
+    const onComplete = function onComplete (regions) {
       calls.push({
         regions: regions
       });
@@ -244,12 +244,12 @@ Tinytest.add('Layout - rendering transactions multiple calls to beginRendering',
 
     // first time, the rendered regions only include the programmatic ones
     // because the contentFor doesn't have a change to run.
-    var regions = calls[0].regions;
+    let regions = calls[0].regions;
     test.equal(regions.length, 2);
     test.isTrue(_.contains(regions, "main"));
     test.isTrue(_.contains(regions, "aside"));
 
-    var regions = calls[1].regions;
+    regions = calls[1].regions;
     test.equal(regions.length, 2);
     test.isTrue(_.contains(regions, "main"));
     test.isTrue(_.contains(regions, "footer"));
@@ -257,9 +257,9 @@ Tinytest.add('Layout - rendering transactions multiple calls to beginRendering',
 });
 
 Tinytest.add('Layout - has, clear and clearAll', function (test) {
-  var layout = new Iron.Layout({template: 'LayoutOne'});
+  const layout = new Iron.Layout({template: 'LayoutOne'});
 
-  withRenderedTemplate(layout.create(), function (el) {
+  withRenderedTemplate(layout.create(), (el) => {
     // just make sure we're starting off correctly
     test.equal(el.innerHTML.compact(), 'layout-');
 
@@ -307,9 +307,9 @@ Tinytest.add('Layout - has, clear and clearAll', function (test) {
 
 Tinytest.add('Layout - default layout', function (test) {
   // no default template
-  var layout = new Iron.Layout;
+  const layout = new Iron.Layout;
 
-  withRenderedTemplate(layout.create(), function (el) {
+  withRenderedTemplate(layout.create(), (el) => {
     layout.render('Plain');
     Tracker.flush();
     test.equal(el.innerHTML.compact(), 'plain', 'no default layout');
@@ -317,13 +317,13 @@ Tinytest.add('Layout - default layout', function (test) {
 });
 
 Tinytest.add('Layout - hasRegion', function (test) {
-  var layout = new Iron.Layout;
+  const layout = new Iron.Layout;
 
-  withRenderedTemplate(layout.create(), function (el) {
+  withRenderedTemplate(layout.create(), (el) => {
     layout.template('LayoutWithHasRegion');
     Tracker.flush();
     test.equal(el.innerHTML.compact(), 'no', 'hasRegion mis-reported true');
-    
+
     layout.render('LayoutTestOne', {to: 'test'});
     Tracker.flush();
     test.equal(el.innerHTML.compact(), 'yes', 'hasRegion mis-reported false');

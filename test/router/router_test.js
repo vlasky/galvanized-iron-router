@@ -78,6 +78,35 @@ Meteor.isClient && Tinytest.add('Router - dispatch - current', function (test) {
 });
 
 if (Meteor.isClient) {
+  Tinytest.add('Router - global hooks receive runtime args', function (test) {
+    var router = new Iron.Router({autoRender: false, autoStart: false});
+    var captured = {};
+
+    router.onBeforeAction(function (req, res, next) {
+      captured.req = req;
+      captured.res = res;
+      captured.nextType = typeof next;
+      captured.thisArg = this;
+      next();
+    });
+
+    router.route('/hook-test', function (req, res, next) {
+      next();
+    });
+
+    var req = {url: '/hook-test'};
+    var res = {};
+
+    router.dispatch('/hook-test', {request: req, response: res});
+
+    test.equal(captured.req, req, 'hook received request');
+    test.equal(captured.res, res, 'hook received response');
+    test.equal(captured.nextType, 'function', 'hook received next');
+    test.instanceOf(captured.thisArg, Iron.RouteController, 'hook thisArg is RouteController');
+  });
+}
+
+if (Meteor.isClient) {
   Tinytest.add('Router - dispatch - same route', function (test) {
     // if we go from one url to the next and its the same route, we don't
     // need to create a new controller instance. this tests that we keep

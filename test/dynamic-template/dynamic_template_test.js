@@ -2,7 +2,7 @@ String.prototype.compact = function () {
   return this.trim().replace(/\s/g, '').replace(/\n/g, '');
 };
 
-var ReactiveVar = function (value) {
+const ReactiveVar = function (value) {
   this._value = value;
   this._dep = new Tracker.Dependency;
 };
@@ -25,13 +25,13 @@ ReactiveVar.prototype.clear = function () {
 };
 
 // a reactive template variable we can use
-var reactiveTemplate = new ReactiveVar;
+const reactiveTemplate = new ReactiveVar;
 
 // a reactive data variable we can use
-var reactiveData = new ReactiveVar;
+const reactiveData = new ReactiveVar;
 
-var withDiv = function (callback) {
-  var el = document.createElement('div');
+const withDiv = function (callback) {
+  const el = document.createElement('div');
   document.body.appendChild(el);
   try {
     callback(el);
@@ -40,8 +40,8 @@ var withDiv = function (callback) {
   }
 };
 
-var withRenderedTemplate = function (template, callback) {
-  withDiv(function (el) {
+const withRenderedTemplate = function (template, callback) {
+  withDiv((el) => {
     template = _.isString(template) ? Template[template] : template;
     Blaze.render(template, el);
     Tracker.flush();
@@ -71,7 +71,7 @@ Template.DynamicData.helpers({
 
 Template.DynamicParentData.helpers({
   getData: function () {
-    var res = reactiveData.get();
+    const res = reactiveData.get();
     return res;
   }
 });
@@ -79,7 +79,7 @@ Template.DynamicParentData.helpers({
 
 Template.DynamicParentDataOnTemplateDynamic.helpers({
   getData: function () {
-    var res = reactiveData.get();
+    const res = reactiveData.get();
     return res;
   }
 });
@@ -92,19 +92,19 @@ Template.DynamicWithBlock.helpers({
 });
 
 Tinytest.add('DynamicTemplate - Static rendering with no data', function (test) {
-  withRenderedTemplate('Static', function (el) {
+  withRenderedTemplate('Static', (el) => {
     test.equal(el.innerHTML.compact(), 'NoData');
   });
 });
 
 Tinytest.add('DynamicTemplate - Static rendering with nonreactive data helper', function (test) {
-  withRenderedTemplate('StaticData', function (el) {
+  withRenderedTemplate('StaticData', (el) => {
     test.equal(el.innerHTML.compact(), 'WithData-data');
   });
 });
 
 Tinytest.add('DynamicTemplate - Dynamic rendering with no data', function (test) {
-  withRenderedTemplate('Dynamic', function (el) {
+  withRenderedTemplate('Dynamic', (el) => {
     // starts off empty
     test.equal(el.innerHTML.compact(), '');
 
@@ -126,14 +126,14 @@ Tinytest.add('DynamicTemplate - Dynamic rendering with no data', function (test)
 });
 
 Tinytest.add('DynamicTemplate - Rendering with dynamic data', function (test) {
-  var renderCount = 0;
+  let renderCount = 0;
   Template.WithData.rendered = function () {
     renderCount++;
   };
 
   reactiveData._value = 'init';
 
-  withRenderedTemplate('DynamicData', function (el) {
+  withRenderedTemplate('DynamicData', (el) => {
     // we've rendered the template to the page
     test.equal(renderCount, 1);
 
@@ -165,7 +165,7 @@ Tinytest.add('DynamicTemplate - Rendering with dynamic data', function (test) {
 });
 
 Tinytest.add('DynamicTemplate - Rendering with dynamic parent data', function (test) {
-  var renderCount = 0;
+  let renderCount = 0;
   Template.WithData.rendered = function () {
     renderCount++;
   };
@@ -173,7 +173,7 @@ Tinytest.add('DynamicTemplate - Rendering with dynamic parent data', function (t
   // star the data value off as an empty string so the template still renders
   reactiveData._value = 'init';
 
-  withRenderedTemplate('DynamicParentData', function (el) {
+  withRenderedTemplate('DynamicParentData', (el) => {
     // we've rendered the template to the page
     test.equal(renderCount, 1);
 
@@ -206,7 +206,7 @@ Tinytest.add('DynamicTemplate - Rendering with dynamic parent data', function (t
 
 
 Tinytest.add('DynamicTemplate - Rendering with dynamic parent data from Template.dynamic', function (test) {
-  var renderCount = 0;
+  let renderCount = 0;
   Template.WithData.rendered = function () {
     renderCount++;
   };
@@ -214,7 +214,7 @@ Tinytest.add('DynamicTemplate - Rendering with dynamic parent data from Template
   // star the data value off as an empty string so the template still renders
   reactiveData._value = 'init';
 
-  withRenderedTemplate('DynamicParentDataOnTemplateDynamic', function (el) {
+  withRenderedTemplate('DynamicParentDataOnTemplateDynamic', (el) => {
     // we've rendered the template to the page
     test.equal(renderCount, 1);
 
@@ -255,7 +255,7 @@ Tinytest.add('DynamicTemplate - Rendering inherits data correctly', function (te
 
 
 Tinytest.add('DynamicTemplate - Block content', function (test) {
-  withRenderedTemplate('DynamicWithBlock', function (el) {
+  withRenderedTemplate('DynamicWithBlock', (el) => {
     // block content should be rendered since we don't have a template yet
     test.equal(el.innerHTML.compact(), 'default');
 
@@ -274,15 +274,15 @@ Tinytest.add('DynamicTemplate - Block content', function (test) {
 Tinytest.add('DynamicTemplate - From JavaScript', function (test) {
   reactiveData._value = '1';
 
-  var getData = function () {
+  const getData = function () {
     return reactiveData.get();
   };
 
-  var tmpl = new Iron.DynamicTemplate({template: 'One', data: getData});
+  const tmpl = new Iron.DynamicTemplate({template: 'One', data: getData});
 
   // calling create() on the dynamic template creates and returns a new
   // View to be rendered.
-  withRenderedTemplate(tmpl.create(), function (el) {
+  withRenderedTemplate(tmpl.create(), (el) => {
     test.equal(el.innerHTML.compact(), 'One');
 
     tmpl.template('WithData');
@@ -304,11 +304,11 @@ Tinytest.add('DynamicTemplate - From JavaScript', function (test) {
 });
 
 Tinytest.add('DynamicTemplate - default template', function (test) {
-  var tmpl = new Iron.DynamicTemplate({defaultTemplate: 'One'});
+  const tmpl = new Iron.DynamicTemplate({defaultTemplate: 'One'});
 
   // calling create() on the dynamic template creates and returns a new
   // UI.Component to be rendered.
-  withRenderedTemplate(tmpl.create(), function (el) {
+  withRenderedTemplate(tmpl.create(), (el) => {
     test.equal(el.innerHTML.compact(), 'One', 'default template not set from options');
 
     tmpl.template('Two');
@@ -330,8 +330,8 @@ Tinytest.add('DynamicTemplate - default template', function (test) {
 });
 
 Tinytest.add('DynamicTemplate - view lifecycle callbacks', function (test) {
-  var tmpl = new Iron.DynamicTemplate({defaultTemplate: 'One'});
-  var calls = [];
+  const tmpl = new Iron.DynamicTemplate({defaultTemplate: 'One'});
+  const calls = [];
 
   _.each(['onViewCreated', 'onViewReady', '_onViewRendered', 'onViewDestroyed'], function (hook) {
     tmpl[hook](function (dynamicTemplate) {
@@ -345,8 +345,8 @@ Tinytest.add('DynamicTemplate - view lifecycle callbacks', function (test) {
 
   // calling create() on the dynamic template creates and returns a new
   // UI.Component to be rendered.
-  var call;
-  withRenderedTemplate(tmpl.create(), function (el) {
+  let call;
+  withRenderedTemplate(tmpl.create(), (el) => {
     test.equal(calls.length, 3, 'onViewCreated, _onViewRendered and onViewReady');
 
     call = calls[0];
@@ -372,7 +372,7 @@ Tinytest.add('DynamicTemplate - view lifecycle callbacks', function (test) {
   });
 });
 
-var calls = [];
+const calls = [];
 
 Template.EventsTest.events({
   'click': function (e, tmpl) {
@@ -380,10 +380,10 @@ Template.EventsTest.events({
 });
 
 Tinytest.add('DynamicTemplate - event handlers', function (test) {
-  var tmpl = new Iron.DynamicTemplate({defaultTemplate: 'EventsTest'});
+  const tmpl = new Iron.DynamicTemplate({defaultTemplate: 'EventsTest'});
 
-  var calls = 0;
-  var thisArg = {};
+  let calls = 0;
+  const thisArg = {};
 
   // first test creating events before rendering
   tmpl.events({
@@ -395,8 +395,8 @@ Tinytest.add('DynamicTemplate - event handlers', function (test) {
     }
   }, thisArg);
 
-  withRenderedTemplate(tmpl.create(), function (el) {
-    var $target = $(el).find('.click');
+  withRenderedTemplate(tmpl.create(), (el) => {
+    const $target = $(el).find('.click');
     $target.trigger('click');
     test.equal(calls, 1);
 
@@ -417,11 +417,11 @@ Tinytest.add('DynamicTemplate - event handlers', function (test) {
 
 
 Tinytest.add('DynamicTemplate - lookup hosts', function (test) {
-  var tmpl = new Iron.DynamicTemplate({template: 'LookupHostTest'});
-  var counter = 0;
-  var helperRunCount = 0;
+  const tmpl = new Iron.DynamicTemplate({template: 'LookupHostTest'});
+  let counter = 0;
+  let helperRunCount = 0;
 
-  var Controller = function () {
+  const Controller = function () {
     this.counter = ++counter;
   };
 
@@ -433,7 +433,7 @@ Tinytest.add('DynamicTemplate - lookup hosts', function (test) {
 
 
   // start off with no controller at the time of render
-  withRenderedTemplate(tmpl.create(), function (el) {
+  withRenderedTemplate(tmpl.create(), (el) => {
     // then add a controller
     tmpl._setLookupHost(new Controller);
 
