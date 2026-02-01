@@ -42,7 +42,7 @@ const withDiv = function (callback) {
 
 const withRenderedTemplate = function (template, callback) {
   withDiv((el) => {
-    template = _.isString(template) ? Template[template] : template;
+    template = typeof template === 'string' ? Template[template] : template;
     Blaze.render(template, el);
     Tracker.flush();
     callback(el);
@@ -246,13 +246,13 @@ Tinytest.add('Layout - rendering transactions multiple calls to beginRendering',
     // because the contentFor doesn't have a change to run.
     let regions = calls[0].regions;
     test.equal(regions.length, 2);
-    test.isTrue(_.contains(regions, "main"));
-    test.isTrue(_.contains(regions, "aside"));
+    test.isTrue(regions.includes("main"));
+    test.isTrue(regions.includes("aside"));
 
     regions = calls[1].regions;
     test.equal(regions.length, 2);
-    test.isTrue(_.contains(regions, "main"));
-    test.isTrue(_.contains(regions, "footer"));
+    test.isTrue(regions.includes("main"));
+    test.isTrue(regions.includes("footer"));
   });
 });
 

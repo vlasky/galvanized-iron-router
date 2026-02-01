@@ -12,14 +12,14 @@ var URLS = [
 ]
 
 Tinytest.add('Location - urlToHashStyle', function (test) {
-  _.each(URLS, function(urls) {
+  URLS.forEach(function(urls) {
     test.equal(urlToHashStyle(urls.base), urls.hash);
   });
 });
 
 
 Tinytest.add('Location - urlFromHashStyle', function (test) {
-  _.each(URLS, function(urls) {
+  URLS.forEach(function(urls) {
     test.equal(urlFromHashStyle(urls.hash), urls.base);
-  })
+  });
 });

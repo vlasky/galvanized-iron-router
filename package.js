@@ -16,7 +16,6 @@ Package.onUse(function (api) {
   api.use('ecmascript');
 
   // Core Meteor dependencies (consolidated from all packages)
-  api.use('underscore');
   api.use('ejson');
   api.use('meteor');
   api.use('random');
@@ -64,7 +63,6 @@ Package.onTest(function (api) {
   api.use('templating');
   api.use('tracker');
   api.use('blaze');
-  api.use('underscore');
 
   // Consolidated test files
   api.addFiles('test/core/iron_core_test.js');

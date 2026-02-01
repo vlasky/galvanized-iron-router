@@ -42,7 +42,7 @@ const withDiv = function (callback) {
 
 const withRenderedTemplate = function (template, callback) {
   withDiv((el) => {
-    template = _.isString(template) ? Template[template] : template;
+    template = typeof template === 'string' ? Template[template] : template;
     Blaze.render(template, el);
     Tracker.flush();
     callback(el);
@@ -333,7 +333,7 @@ Tinytest.add('DynamicTemplate - view lifecycle callbacks', function (test) {
   const tmpl = new Iron.DynamicTemplate({defaultTemplate: 'One'});
   const calls = [];
 
-  _.each(['onViewCreated', 'onViewReady', '_onViewRendered', 'onViewDestroyed'], function (hook) {
+  ['onViewCreated', 'onViewReady', '_onViewRendered', 'onViewDestroyed'].forEach(function (hook) {
     tmpl[hook](function (dynamicTemplate) {
       calls.push({
         name: hook,

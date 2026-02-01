@@ -42,7 +42,7 @@ var withDiv = function (callback) {
 
 var withRenderedTemplate = function (template, callback) {
   withDiv(function (el) {
-    template = _.isString(template) ? Template[template] : template;
+    template = typeof template === 'string' ? Template[template] : template;
     Blaze.render(template, el);
     Tracker.flush();
     callback(el);
