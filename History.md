@@ -1,9 +1,14 @@
-v2.0.4 / 2025-1-28
+v2.1.0 / 2026-02-02
 ==================
+* ES6 refactor and Blaze 3.0 compatibility improvements
+* Fix data context lookup with class-field shadowing on controllers
+* Allow duplicate implicit middleware names; explicit names remain unique
+* Add regression tests for middleware naming and controller data lookup
 * Added controller registry for ES6 module support
   * `Router.registerControllers([...])` - register an array of controllers
   * `Router.registerController(name, Controller)` - register with explicit name
   * Eliminates the need to attach controllers to `window` when using ES6 modules
+* Tested on Meteor 2.8.1 and 3.4
 
 v2.0.3 / 2025-9-13
 ==================

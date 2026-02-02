@@ -33,6 +33,45 @@ Tinytest.add('MiddlewareStack - create and find by name', function (test) {
   });
 });
 
+Tinytest.add('MiddlewareStack - duplicate implicit names', function (test) {
+  const stack = new Iron.MiddlewareStack;
+
+  // Two functions with the same implicit name should not collide.
+  function sameName() {}
+  function sameName2() {}
+  Object.defineProperty(sameName2, 'name', {value: sameName.name});
+
+  stack.append(sameName);
+  stack.append(sameName2);
+  test.equal(stack.length, 2, 'implicit duplicate names should not throw');
+
+  // Explicitly named handlers should still collide.
+  stack.push('/one', function () {}, {name: 'explicit'});
+  test.throws(function () {
+    stack.push('/two', function () {}, {name: 'explicit'});
+  });
+});
+
+Tinytest.add('MiddlewareStack - insertBefore/insertAfter target first implicit match', function (test) {
+  const stack = new Iron.MiddlewareStack;
+
+  function dup() {}
+  function dup2() {}
+  Object.defineProperty(dup2, 'name', {value: dup.name});
+
+  function before() {}
+  function after() {}
+
+  stack.push(dup);
+  stack.push(dup2);
+
+  stack.insertBefore('dup', before);
+  test.equal(stack._stack[0].handle, before, 'insertBefore should target first implicit match');
+
+  stack.insertAfter('dup', after);
+  test.equal(stack._stack[2].handle, after, 'insertAfter should target first implicit match');
+});
+
 Tinytest.add('MiddlewareStack - push', function (test) {
   const stack = new Iron.MiddlewareStack;
   const fns = [function () {}, function () {}];

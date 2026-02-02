@@ -92,6 +92,8 @@ if (Meteor.isClient) {
 
     router.route('/hook-test', function (req, res, next) {
       next();
+      // This test isn't about rendering; stop explicitly to avoid warnings.
+      this.stop();
     });
 
     var req = {url: '/hook-test'};
@@ -127,6 +129,8 @@ if (Meteor.isClient) {
         thisArg: this,
         id: this.params.id
       });
+      // This test isn't about rendering; stop explicitly to avoid warnings.
+      this.stop();
     });
 
     var prevController;

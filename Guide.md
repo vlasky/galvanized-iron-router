@@ -2,7 +2,7 @@
 
 A complete client/server routing system for Meteor with layouts, middleware, and reactive templates.
 
-**Version 2.0** - All Iron packages consolidated into one with full Meteor 3.0+ support!
+**Version 2.0+** - All Iron packages consolidated into one with full Meteor 3.0+ support.
 
 
 ## Quick Start
@@ -101,6 +101,7 @@ The `where: 'server'` option tells the Router this is a server side route.
   - [Available Hook Methods](#available-hook-methods)
 - [Route Controllers](#route-controllers)
   - [Creating Route Controllers](#creating-route-controllers)
+  - [Using the Controller Registry (ES6 Modules)](#using-the-controller-registry-es6-modules)
   - [Inheriting from Route Controllers](#inheriting-from-route-controllers)
   - [Accessing the Current Route Controller](#accessing-the-current-route-controller)
   - [Setting Reactive State Variables](#setting-reactive-state-variables)
@@ -240,7 +241,7 @@ Router.route('/post/:_id', function () {
   });
 });
 ```
-If you wish to return access to more that one `Post` from the route, the
+If you wish to return access to more than one `Post` from the route, the
 `data` option should return an object containing a cursor.
 
 ```javascript
@@ -253,7 +254,7 @@ Router.route('/post/:_id', function () {
 });
 ```
 
-Too access the `title` of each `Post`, use the `#each` helper in the template.
+To access the `title` of each `Post`, use the `#each` helper in the template.
 
 ```handlebars
 <template name="Post">
@@ -369,17 +370,17 @@ Router.route('/post/:_id', function () {
     // we don't really need this since we set the data context for the
     // the entire layout above. But this demonstrates how you can set
     // a new data context for each specific region.
-    data: function () { return Posts.findOne({_id: this.params._id})
+    data: function () { return Posts.findOne({_id: this.params._id}); }
   });
 
   this.render('PostAside', {
     to: 'aside',
-    data: function () { return Posts.findOne({_id: this.params._id})
+    data: function () { return Posts.findOne({_id: this.params._id}); }
   });
 
   this.render('PostFooter', {
     to: 'footer',
-    data: function () { return Posts.findOne({_id: this.params._id})
+    data: function () { return Posts.findOne({_id: this.params._id}); }
   });
 });
 ```
@@ -614,9 +615,9 @@ Router.current().route.getName()
 
 ## Template Lookup
 If you don't explicitly set a template option on your route, and you don't
-explicity render a template name, the router will try to automatically render a
+explicitly render a template name, the router will try to automatically render a
 template based on the name of the route. By default the router will look for the
-class case name of the template.
+PascalCase name of the template.
 
 For example, if you have a route defined like this:
 
@@ -1092,7 +1093,7 @@ Router.onBeforeAction(function(req, res, next) {
 }, {where: 'server'});
 ```
 
-This means you can attach any connect middleware you like on the server side using `Router.onBeforeAction()`. For convience, IR makes express' [body-parser](https://github.com/expressjs/body-parser) available at `Iron.Router.bodyParser`.
+This means you can attach any connect middleware you like on the server side using `Router.onBeforeAction()`. For convenience, GIR makes express' [body-parser](https://github.com/expressjs/body-parser) available at `Iron.Router.bodyParser`.
 
 The Router attaches the JSON body parser automatically.
 
@@ -1166,6 +1167,47 @@ options defined on the `Route` and some options defined on the
 1. Route
 2. RouteController
 3. Router
+
+### Using the Controller Registry (ES6 Modules)
+
+When using ES6 modules, controllers are no longer automatically available on the
+global scope. Galvanized Iron Router provides a controller registry so you don't
+need to pollute the global `window` object.
+
+```javascript
+// client/controllers.js
+import { DashboardController } from './management/dashboard.js';
+import { StoreController } from './management/store.js';
+import { UsersController } from './management/users.js';
+
+Router.registerControllers([
+  DashboardController,
+  StoreController,
+  UsersController
+]);
+```
+
+Routes work exactly as before - controller names are extracted automatically
+from the class:
+
+```javascript
+Router.route('/dashboard', { controller: 'DashboardController' });
+Router.route('/store/:id', { controller: 'StoreController' });
+```
+
+For anonymous controllers or custom names, use the two-argument form:
+
+```javascript
+Router.registerController('MyController', RouteController.extend({ ... }));
+```
+
+When resolving a controller by name, the router checks:
+
+1. **Controller registry** - Controllers registered via `registerControllers()`
+2. **Global namespace** - Falls back to `window[controllerName]` for backwards compatibility
+
+This means existing code that assigns controllers to `window` continues to work
+unchanged.
 
 ### Inheriting from Route Controllers
 RouteControllers can inherit from other RouteControllers. This enables some
@@ -1296,7 +1338,7 @@ global helper method.
 Legacy browsers do not support the HTML5 `pushState` and `history` features
 required for normal client side browsing with the `Router`. To solve this
 problem, the `Router` can fall back to using hash fragments in the url.
-Actually, under the hood, `iron-router` uses a package called `iron-location`
+Under the hood, Galvanized Iron Router uses a component called `Iron.Location`
 which handles all of this. It works similarly to the `History.js` project but
 works seamlessly.
 

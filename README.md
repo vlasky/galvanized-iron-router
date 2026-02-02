@@ -1,14 +1,15 @@
 Galvanized Iron Router
 ==============================================================================
 
-A complete client/server routing system for Meteor with layouts, middleware, and reactive templates.
-
-**Version 2.0** - Iron Router made rust-resistant and long-lasting for Meteor 3.0+!
+[![Version](https://img.shields.io/badge/version-2.1.0-blue.svg)](https://atmospherejs.com/vlasky/galvanized-iron-router)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 Galvanized Iron Router is a fork of the classic Iron Router package, giving it a new lease of life by making it fully compatible with Meteor 3.0 and beyond. Just as galvanizing iron makes it rust-resistant and longer lasting, this fork ensures Iron Router continues to work reliably with modern Meteor applications.
 
-## The Iron Router Guide
-Detailed explanations of router features can be found in the original [Iron Router Guide](http://iron-meteor.github.io/iron-router/).
+It's a complete client/server routing system for Meteor with layouts, middleware, and reactive templates.
+
+## Guide
+The primary guide for this fork is in [Guide.md](Guide.md). The original Iron Router guide is still available as a legacy reference: [iron-meteor.github.io/iron-router](https://iron-meteor.github.io/iron-router/).
 
 ## Installation
 
@@ -18,9 +19,7 @@ meteor add vlasky:galvanized-iron-router
 
 ## Compatibility
 
-Galvanized Iron Router supports:
-- **Meteor 2.0+** (stable)
-- **Meteor 3.0+** (compatible with Fibers removal and Express 5)
+Galvanized Iron Router supports all versions of Meteor from version 2.8.1 onwards. It has been tested on Meteor 2.8.1 and 3.4.
 
 For Meteor 3.0+ projects, Galvanized Iron Router automatically adapts to:
 - Async/await execution model (no Fibers dependency)
@@ -78,39 +77,13 @@ Router.route('/restful', {where: 'server'})
 
 ```
 
-## What's New in Version 2.0
-
-Galvanized Iron Router v2.0 is a **major consolidation release** that combines all Iron packages into a single, comprehensive routing system:
-
-### **Consolidated Packages**
-All previously separate packages are now included:
-- `iron:core` - Namespace and utilities
-- `iron:url` - URL compilation and utilities
-- `iron:middleware-stack` - Connect-style middleware
-- `iron:dynamic-template` - Dynamic template rendering
-- `iron:layout` - Layout system with yield regions
-- `iron:location` - Reactive URL and browser state
-- `iron:controller` - Route controllers with reactive state
-
-### **Benefits**
-- ✅ **Single installation**: Just `meteor add vlasky:galvanized-iron-router`
-- ✅ **No dependency conflicts**: All components perfectly integrated
-- ✅ **Simplified maintenance**: One package to update
-- ✅ **Better performance**: Optimized load order and no inter-package overhead
-
-### **Migration from v1.x**
-**No changes needed!** Your existing code works unchanged. Simply update your packages:
-
-```bash
-meteor remove iron:core iron:layout iron:controller iron:location iron:middleware-stack iron:url iron:dynamic-template
-meteor add vlasky:galvanized-iron-router@2.0.0
-```
-
 ## ES6 Module Support for Controllers
 
 When using ES6 modules, controllers are no longer automatically available on the global scope. Galvanized Iron Router provides a controller registry so you don't need to pollute the global `window` object.
 
 ### Registering Controllers
+
+Example:
 
 ```javascript
 // client/controllers.js
@@ -146,32 +119,11 @@ When resolving a controller by name, the router checks:
 
 This means existing code that assigns controllers to `window` continues to work unchanged.
 
-## Migrating to Meteor 3.0+
-
-Iron Router is fully compatible with Meteor 3.0+. No code changes are required in your routes or controllers. The package automatically handles:
-
-- Fibers removal (server-side routing continues to work seamlessly)
-- Express 5 transition (body parsing is automatically updated)
-- All existing route definitions, hooks, and controllers work unchanged
-
-## Migrating from 0.9.4
-
-Iron Router should be reasonably backwards compatible, but there are a few required changes that you need to know about:
+## API Notes
 
 ### Hooks
 
-`onRun` and `onBeforeAction` hooks now require you to call `this.next()`, and no longer take a `pause()` argument. So the default behaviour is reversed. For example, if you had:
-
-```javascript
-Router.onBeforeAction(function(pause) {
-  if (! Meteor.userId()) {
-    this.render('login');
-    pause();
-  }
-});
-```
-
-You'll need to update it to
+`onRun` and `onBeforeAction` hooks require you to call `this.next()` to continue to the next handler. This follows the connect middleware convention.
 
 ```javascript
 Router.onBeforeAction(function() {
@@ -183,43 +135,53 @@ Router.onBeforeAction(function() {
 });
 ```
 
-This is to fit better with existing route middleware (e.g. connect) APIs.
+### Middleware handler naming
+
+Handler names are used for lookups like `findByName`, `insertBefore`, and `insertAfter`.
+
+- **Explicit names** (`{ name: 'auth' }`) must be unique and are the only safe way to target a handler by name.
+- **Implicit names** (derived from function names or paths) are allowed to collide and should not be relied on for name-based insertion.
+
+If you plan to reference a handler later, always provide an explicit `name`.
 
 ### Controller Methods
 
-`controller.setLayout()` is now `controller.layout()`. Usually called as `this.layout("fooTemplate")` inside a route action.
+Use `this.layout("fooTemplate")` inside a route action to set the layout.
 
 ### Query Parameters
-Query parameters now get their own object on `this.params`. To access the query object you can use `this.params.query`.
+
+Query parameters are available on `this.params.query`.
 
 ### Loading Hook
 
-The `loading` hook now runs automatically on the client side if your route has a `waitOn`. As previously, you can set a global or per-route `loadingTemplate`.
+The `loading` hook runs automatically on the client side if your route has a `waitOn`. You can set a global or per-route `loadingTemplate`.
 
-If you want to setup subscriptions but not have an automatic loading hook, you can use the new `subscriptions` option, which still affects `.ready()`-ness, but doesn't force the `loading` hook.
+If you want to setup subscriptions but not have an automatic loading hook, use the `subscriptions` option, which still affects `.ready()`-ness, but doesn't force the `loading` hook.
 
 ### Hook and option inheritance
 
-All hooks and options are now fully inherited from parent controllers and the router itself as you might expect. The order of precendence is now route; controller; parent controller; router.
+Hooks and options are inherited from parent controllers and the router. The order of precedence is: route; controller; parent controller; router.
+
+Option lookup treats `undefined` as "not set" and will fall through to lower-precedence sources. If you need to explicitly clear an option, use `null`.
 
 ### Route names
 
-A route's name is now accessible at `route.getName()` (previously it was `route.name`). In particular, you'll need to write `Router.current().route.getName()`.
+A route's name is accessible via `route.getName()`. For example: `Router.current().route.getName()`.
 
 ### Routes on client and server
 
-It's not strictly required, but moving forward, Iron Router expects all routes to be declared on both client and server. This means that the client can route to the server and visa-versa.
+It's not strictly required, but Iron Router works best when routes are declared on both client and server. This allows the client to route to the server and vice-versa.
 
 ### Catchall routes
 
-Iron Router now uses [path-to-regexp](https://github.com/pillarjs/path-to-regexp), which means the syntax for catchall routes has changed a little -- it's now `'/(.*)'`.
+Iron Router uses [path-to-regexp](https://github.com/pillarjs/path-to-regexp). The syntax for catchall routes is `'/(.*)'`.
 
 ### Template Lookup
 
 If you don't explicitly set a template option on your route, and you don't
-explicity render a template name, the router will try to automatically render a
+explicitly render a template name, the router will try to automatically render a
 template based on the name of the route. By default the router will look for the
-class case name of the template.
+PascalCase name of the template.
 
 For example, if you have a route defined like this:
 
@@ -241,30 +203,28 @@ Contributors are very welcome. There are many things you can help with,
 including finding and fixing bugs, creating examples for the examples folder,
 contributing to improved design or adding features. Some guidelines below:
 
-* **Questions**: Please post to Stack Overflow and tag with `iron-router` : http://stackoverflow.com/questions/tagged/iron-router.
+* **Questions**: Please post to Stack Overflow and tag with `iron-router` : https://stackoverflow.com/questions/tagged/iron-router.
 
 * **New Features**: If you'd like to work on a feature,
   start by creating a 'Feature Design: Title' issue. This will let people bat it
   around a bit before you send a full blown pull request. Also, you can create
   an issue to discuss a design even if you won't be working on it.
 
-* **Bugs**: If you think you found a bug, please create a "reproduction." This is a small project that demonstrates the problem as concisely as possible. The project should be cloneable from Github. Any bug reports without a reproduction that don't have an obvious solution will be marked as "awaiting-reproduction" and closed after one week. Want more information on creating reproductions? Watch this video: https://www.eventedmind.com/feed/github-issues-and-reproductions.
+* **Bugs**: If you think you found a bug, please create a "reproduction." This is a small project that demonstrates the problem as concisely as possible. The project should be cloneable from GitHub. Any bug reports without a reproduction that don't have an obvious solution will be marked as "awaiting-reproduction" and closed after one week.
 
-###  Working Locally
-This is useful if you're contributing code to iron-router.
+### Working Locally
+This is useful if you're contributing code to Galvanized Iron Router.
 
   1. Set up a local packages folder
   2. Add the PACKAGE_DIRS environment variable to your .bashrc file
-    - Example: `export PACKAGE_DIRS="/Users/cmather/code/packages"`
-    - Screencast: https://www.eventedmind.com/posts/meteor-versioning-and-packages
+    - Example: `export PACKAGE_DIRS="/home/user/code/packages"`
   3. Clone the repository into your local packages directory
-  4. Add iron-router just like any other meteor core package like this: `meteor
-     add iron:router`
+  4. Add the package to your Meteor project
 
 ```bash
-> git clone https://github.com/EventedMind/iron-router.git /Users/cmather/code/packages/iron:router
-> cd my-project
-> meteor add iron:router
+git clone https://github.com/vlasky/galvanized-iron-router.git /home/user/code/packages/galvanized-iron-router
+cd my-project
+meteor add vlasky:galvanized-iron-router
 ```
 
 ## License
