@@ -10,7 +10,26 @@ import { Tracker } from 'meteor/tracker';
 import { Mongo } from 'meteor/mongo';
 
 declare module 'meteor/vlasky:galvanized-iron-router' {
-  export { Router, RouteController, Iron };
+  // Router is exported as an instance with both instance methods and class statics
+  export const Router: InstanceType<typeof globalThis.Router> & typeof globalThis.Router;
+  export {
+    RouteController,
+    Iron,
+    Route,
+    Controller,
+    Layout,
+    DynamicTemplate,
+    MiddlewareStack,
+    WaitList,
+    Handler,
+    Url,
+    Location,
+    State,
+    RC,
+    urlToHashStyle,
+    urlFromHashStyle,
+    fixHashPath,
+  };
   export {
     RouterOptions,
     RouteOptions,
@@ -65,7 +84,7 @@ interface LayoutOptions {
 interface RenderOptions {
   to?: string;
   region?: string;
-  data?: (() => any) | object;
+  data?: ((this: RouteController) => any) | object;
 }
 
 // Region template configuration
@@ -81,6 +100,48 @@ interface SubscriptionHandleWithWait extends Meteor.SubscriptionHandle {
 
 // Hook function signature
 type HookFunction = (this: RouteController, ...args: any[]) => void;
+
+// Async hook function signature (for action methods that can be async)
+// Allow boolean return for early exit patterns (return false to stop)
+type AsyncHookFunction = (this: RouteController, ...args: any[]) => void | boolean | Promise<void>;
+
+// RouteController.extend() props interface
+interface RouteControllerExtendProps {
+  // Template and layout
+  template?: string;
+  layoutTemplate?: string;
+  loadingTemplate?: string;
+  notFoundTemplate?: string;
+
+  // Hooks
+  onRun?: HookFunction | HookFunction[];
+  onRerun?: HookFunction | HookFunction[];
+  onBeforeAction?: HookFunction | HookFunction[];
+  onAfterAction?: HookFunction | HookFunction[];
+  onStop?: HookFunction | HookFunction[];
+  waitOn?: HookFunction | HookFunction[];
+  subscriptions?: HookFunction | HookFunction[];
+
+  // Legacy hook aliases
+  load?: HookFunction | HookFunction[];
+  before?: HookFunction | HookFunction[];
+  after?: HookFunction | HookFunction[];
+  unload?: HookFunction | HookFunction[];
+
+  // Action (can be async)
+  action?: AsyncHookFunction;
+
+  // Data context
+  data?: (this: RouteController) => any;
+
+  // Region templates
+  yieldRegions?: { [region: string]: RegionTemplate };
+  yieldTemplates?: { [region: string]: RegionTemplate };
+  regionTemplates?: { [region: string]: RegionTemplate };
+
+  // Allow arbitrary additional methods/properties
+  [key: string]: any;
+}
 
 // Route options interface
 interface RouteOptions {
@@ -170,7 +231,7 @@ declare class Route {
   readonly name: string;
   options: RouteOptions;
   router: Router;
-  handler: Iron.Url;
+  handler: Handler;
 
   // Internal properties
   _path: string | RegExp;
@@ -213,8 +274,8 @@ declare class Controller {
   /** Set the layout template */
   layout(template: string, options?: LayoutOptions): { data(value: (() => any) | object): void };
 
-  /** Render a template to a region */
-  render(template: string, options?: RenderOptions): { data(value: (() => any) | object): void };
+  /** Render a template to a region (no args uses the default template) */
+  render(template?: string, options?: RenderOptions): { data(value: (() => any) | object): void };
 
   /** Begin rendering transaction */
   beginRendering(onComplete?: () => void): void;
@@ -229,6 +290,7 @@ declare class Controller {
   static extend(props: object): typeof Controller;
   static events(events: { [key: string]: Function }): typeof Controller;
   static helpers(helpers: { [key: string]: Function }): typeof Controller;
+  static _name?: string;
   static _helpers?: { [key: string]: Function };
   static __super__?: any;
 
@@ -290,7 +352,7 @@ declare class RouteController extends Controller {
   next(): void;
 
   // Static methods
-  static extend(props: object): typeof RouteController;
+  static extend(props: RouteControllerExtendProps): typeof RouteController;
   static events(events: { [key: string]: Function }): typeof RouteController;
   static helpers(helpers: { [key: string]: Function }): typeof RouteController;
 
@@ -304,11 +366,14 @@ declare class RouteController extends Controller {
   method: HttpMethod;
 
   // Client-side only
-  location?: Iron.Location.State;
+  location?: LocationAPI;
 
   // Server-side only
   request?: Express.Request;
   response?: Express.Response;
+
+  // Allow arbitrary custom properties (controllers commonly store state on this)
+  [key: string]: any;
 }
 
 // DynamicTemplate options
@@ -417,13 +482,19 @@ declare class Layout extends DynamicTemplate {
 }
 
 // Middleware Handler
-interface Handler {
+declare class Handler {
+  constructor(path: string | RegExp | Function, fn?: Function | object, options?: object);
   name?: string;
   path: string | RegExp;
   handle: Function;
   options: object;
+  mount?: boolean;
+  method?: string | boolean;
+  where?: string;
   test(path: string): boolean;
-  params(path: string): object;
+  params(path: string): any[];
+  resolve(params?: RouteParams, options?: { query?: QueryParams; hash?: string }): string | null;
+  clone(): Handler;
 }
 
 // MiddlewareStack class
@@ -477,6 +548,73 @@ interface ParsedUrl {
   hash: string;
   slashes: boolean;
 }
+
+// URL class
+declare class Url {
+  constructor(url: string | RegExp, options?: object);
+
+  /** Test if a path matches this URL pattern */
+  test(path: string): boolean;
+
+  /** Execute regex match on path */
+  exec(path: string): RegExpExecArray | null;
+
+  /** Extract parameters from path */
+  params(path: string): any[];
+
+  /** Resolve URL with parameters */
+  resolve(params?: RouteParams, options?: { query?: QueryParams; hash?: string; throwOnMissingParams?: boolean }): string | null;
+
+  // Static methods
+  static normalize(url: string | RegExp): string | RegExp;
+  static isSameOrigin(a: string, b: string): boolean;
+  static parse(url: string): ParsedUrl;
+  static fromQueryString(query: string): QueryParams;
+  static toQueryString(queryObject: QueryParams | string | null): string;
+}
+
+// Client-side Location state
+declare class State implements ParsedUrl {
+  constructor(url: string, options?: { historyState?: any });
+  options: { historyState?: any };
+  equals(other: State | null | undefined): boolean;
+  isCancelled(): boolean;
+  cancelUrlChange(): void;
+  rootUrl: string;
+  originalUrl: string;
+  href: string;
+  protocol: string;
+  auth: string;
+  host: string;
+  hostname: string;
+  port: string;
+  origin: string;
+  path: string;
+  pathname: string;
+  search: string;
+  query: string;
+  queryObject: QueryParams;
+  hash: string;
+  slashes: boolean;
+}
+
+interface LocationAPI {
+  options: Iron.Location.LocationOptions;
+  configure(options: Iron.Location.LocationOptions): void;
+  get(): State;
+  go(url: string, options?: { replaceState?: boolean; historyState?: any }): void;
+  start(): void;
+  stop(): void;
+  onClick(fn: (event: MouseEvent) => void): void;
+  onGo(cb: (state: State) => void): void;
+  onPopState(cb: (state: State) => void): void;
+}
+
+declare const Location: LocationAPI;
+
+declare function urlToHashStyle(url: string): string;
+declare function urlFromHashStyle(url: string): string;
+declare function fixHashPath(pathname: string): string;
 
 // Iron namespace
 declare namespace Iron {
@@ -596,7 +734,7 @@ declare class Router {
   stop(): void;
 
   /** Define a route */
-  route(path: string | RegExp, fn?: string | Function | RouteOptions, opts?: RouteOptions): Route;
+  route(path: string | RegExp, fn?: string | ((this: RouteController) => void) | RouteOptions, opts?: RouteOptions): Route;
 
   /** Find the first matching route for a URL */
   findFirstRoute(url: string): Route | null;
@@ -614,7 +752,7 @@ declare class Router {
   registerController(nameOrController: string | typeof RouteController, controller?: typeof RouteController): Router;
 
   /** Register multiple controllers */
-  registerControllers(controllers: (typeof RouteController)[]): Router;
+  registerControllers(controllers: (typeof RouteController)[] | { [name: string]: typeof RouteController }): Router;
 
   /** Get a registered controller by name */
   getController(name: string): typeof RouteController | undefined;
@@ -695,6 +833,7 @@ declare class Router {
 
 // Global Router instance
 declare const Router: Router & typeof Router;
+declare const RC: typeof RouteController;
 
 // Express types for server-side request/response
 declare namespace Express {
@@ -748,7 +887,15 @@ export {
   DynamicTemplate,
   MiddlewareStack,
   WaitList,
+  Handler,
+  Url,
+  Location,
+  State,
   Iron,
+  RC,
+  urlToHashStyle,
+  urlFromHashStyle,
+  fixHashPath,
   // Type exports
   RouterOptions,
   RouteOptions,

@@ -1,4 +1,23 @@
-v2.1.0 / 2026-02-02
+v2.1.1 / 2026-02-09
+==================
+* `registerControllers()` now accepts an object map in addition to arrays
+  * `Router.registerControllers({ DashboardController, StoreController })` registers by key name
+  * Useful for controllers created via `RouteController.extend()` where `Function.name` may not be configurable
+* `Iron.utils.extend` now sets `_name` property on constructors when `props.name` is provided
+  * Also attempts to set `Function.name` via `Object.defineProperty` as a best-effort
+* `registerController()` prefers `controller._name` over `controller.name` for registry key lookup
+* TypeScript definitions significantly expanded:
+  * Added `RouteControllerExtendProps` interface for strongly-typed `RouteController.extend()` calls
+  * Added `AsyncHookFunction` type for async action methods
+  * Added full declarations for `Handler`, `Url`, `State`, and `LocationAPI` classes/interfaces
+  * Broadened module exports to include `Route`, `Controller`, `Layout`, `DynamicTemplate`, `MiddlewareStack`, `WaitList`, `Handler`, `Url`, `Location`, `State`, `RC`, and hash URL utilities
+  * `render()` template parameter now optional; `RenderOptions.data` and `route()` callback typed with `RouteController` context
+  * `RouteController` now has an index signature for arbitrary custom properties
+  * Declared global `RC` alias for `RouteController`
+* Package metadata now declares `types: 'index.d.ts'` and ships the declaration file as an asset
+* Updated documentation for object-map controller registration in README.md and Guide.md
+
+v2.1.0 / 2026-02-02 (unreleased)
 ==================
 * ES6 refactor and Blaze 3.0 compatibility improvements
 * Fix data context lookup with class-field shadowing on controllers

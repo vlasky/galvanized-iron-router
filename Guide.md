@@ -1201,6 +1201,17 @@ For anonymous controllers or custom names, use the two-argument form:
 Router.registerController('MyController', RouteController.extend({ ... }));
 ```
 
+Alternatively, you can register a controller map to avoid relying on constructor
+names (useful for controllers created via `RouteController.extend()`):
+
+```javascript
+Router.registerControllers({
+  DashboardController,
+  StoreController,
+  UsersController
+});
+```
+
 When resolving a controller by name, the router checks:
 
 1. **Controller registry** - Controllers registered via `registerControllers()`

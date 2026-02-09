@@ -1,8 +1,9 @@
 Package.describe({
   name: 'vlasky:galvanized-iron-router',
   summary: 'Galvanized Iron Router - a client/server routing system for Meteor 2.0 and 3.0+',
-  version: '2.1.0',
-  git: 'https://github.com/vlasky/galvanized-iron-router'
+  version: '2.1.1',
+  git: 'https://github.com/vlasky/galvanized-iron-router',
+  types: 'index.d.ts'
 });
 
 Npm.depends({
@@ -44,6 +45,9 @@ Package.onUse(function (api) {
   // ESM entry points
   api.mainModule('lib/client.js', 'client');
   api.mainModule('lib/server.js', 'server');
+
+  // TypeScript ambient declaration file
+  api.addAssets('index.d.ts', ['client', 'server']);
 
   // Backward-compatible exports (globals still work)
   api.export('Iron');
