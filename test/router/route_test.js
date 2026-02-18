@@ -116,7 +116,7 @@ Tinytest.add('Router - registerController validation', function (test) {
 
   test.throws(function () {
     router.registerControllers(RouteController.extend({}));
-  }, 'registerControllers expects an array of controllers.');
+  }, 'registerControllers expects an array or object of controllers.');
 });
 
 Tinytest.add('Route - backward api compat', function (test) {
@@ -144,4 +144,18 @@ Tinytest.add('Route - backward api compat', function (test) {
   } catch (e) {
     test.fail('first param name with a path option does not work');
   }
+});
+
+Tinytest.add('Route - callable name is blank so handler names derive from path', function (test) {
+  var router = new Iron.Router({autoStart: false, autoRender: false});
+
+  var one = router.route('/one');
+  var two = router.route('/two');
+
+  // If the callable route has a non-empty function name, Handler prefers fn.name
+  // over the URL path and multiple routes can collide under minification.
+  test.equal(one.name, '', 'route callable function name should be blank');
+  test.equal(two.name, '', 'route callable function name should be blank');
+  test.equal(one.getName(), 'one', 'route name should derive from path');
+  test.equal(two.getName(), 'two', 'route name should derive from path');
 });

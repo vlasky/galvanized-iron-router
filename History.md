@@ -1,3 +1,10 @@
+v2.1.2 / 2026-02-18
+==================
+* Fix production route registration failure: `Handler with name 'r' already exists`
+  * Clear the callable route function name in `Route` so handler naming falls back to path-derived names
+  * Prevent minified implicit function names from colliding across routes in production bundles
+* Add regression test ensuring callable route names remain blank and route names derive from path
+
 v2.1.1 / 2026-02-09
 ==================
 * `registerControllers()` now accepts an object map in addition to arrays

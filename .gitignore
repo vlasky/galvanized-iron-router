@@ -4,3 +4,13 @@
 smart.lock
 versions.json
 .versions
+
+#AI tools
+.claude/
+.codex/
+.gemini/
+.mcp/
+.mcp.json
+
+# Local override files
+*.local.md
