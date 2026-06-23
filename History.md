@@ -1,3 +1,11 @@
+v2.1.3 / 2026-06-23
+==================
+* Fix `this.params.query` returning `{}` (query string parameters not parsed) (GH #6)
+  * `MiddlewareStack.dispatch` was computing `handler.params()` from the url *after* `Url.normalize` had stripped the query string, producing an empty query object that was then merged over the controller's correctly-parsed params
+  * Dispatch now parses params from the raw url (with its query string and hash) while still normalizing for path matching
+  * Regression introduced in the 2.1.0 ES6 refactor; query params worked in 2.0.3
+* Add regression test ensuring dispatched query params, array query params, and the hash fragment survive normalization
+
 v2.1.2 / 2026-02-18
 ==================
 * Fix production route registration failure: `Handler with name 'r' already exists`

@@ -194,6 +194,28 @@ Tinytest.add('MiddlewareStack - mounting paths', function (test) {
   }
 });
 
+Tinytest.add('MiddlewareStack - dispatch preserves query params (GH #6)', function (test) {
+  const stack = new Iron.MiddlewareStack;
+  const where = Meteor.isServer ? 'server' : 'client';
+
+  stack.push('/items/:id', function item (req, res, next) {
+    if (next) next();
+  }, { where: where });
+
+  const thisArg = {};
+
+  // The dispatched url carries a query string and a hash fragment. Even though
+  // Url.normalize strips these for path matching, the parsed params must still
+  // expose them. Regression test for the 2.1.x bug where the query object was
+  // clobbered with {} because handler.params() ran against the normalized url.
+  stack.dispatch('/items/42?token=abc&list[]=1&list[]=2#frag', thisArg);
+
+  test.equal(thisArg.params.id, '42', 'path param not parsed');
+  test.equal(thisArg.params.query.token, 'abc', 'query param token missing');
+  test.equal(thisArg.params.query.list, ['1', '2'], 'array query param missing');
+  test.equal(thisArg.params.hash, 'frag', 'hash fragment missing');
+});
+
 Tinytest.add('MiddlewareStack - append with options', function (test) {
   const fn1 = function () {};
   const fn2 = function () {};
