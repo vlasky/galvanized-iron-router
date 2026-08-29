@@ -1,4 +1,4 @@
-v2.3.0 / unreleased
+v2.3.0 / 2026-08-29
 ==================
 * The router no longer uses jQuery: delegated link clicks, template insertion, hash scrolling, tests and the executable examples now use native DOM APIs. The `jquery` dependency is now *weak*, so this package no longer pulls jQuery into your app. Blaze 3.1+ applications can go fully jQuery-free
 * **Migration note:** on Blaze 2.x and 3.0.x (all Meteor 2 apps, and Meteor 3 apps not yet on Blaze 3.1), Blaze itself still requires jQuery and fails at client startup with `Error: jQuery not found` when nothing supplies it. Almost all apps already list `jquery` in `.meteor/packages` (Meteor's own upgraders and app skeletons add it); if yours relied on this package to supply jQuery, run `meteor add jquery`. You control the jQuery version by installing it from npm (`meteor npm install jquery@<version>`); the Meteor `jquery` package detects and uses it. On Meteor 2, a development-mode server startup warning now detects jQuery missing from the client bundle and prints this remedy
