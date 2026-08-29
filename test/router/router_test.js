@@ -109,6 +109,37 @@ if (Meteor.isClient) {
 }
 
 if (Meteor.isClient) {
+  Tinytest.add('Router - scrollToHash uses decoded element ids and native scrolling', function (test) {
+    var router = new Iron.Router({autoRender: false, autoStart: false});
+    var target = document.createElement('div');
+    var scrollTo = window.scrollTo;
+    var scrollCalls = [];
+
+    target.id = 'hash target';
+    target.getBoundingClientRect = function () {
+      return {top: 125};
+    };
+    document.body.appendChild(target);
+    window.scrollTo = function (x, y) {
+      scrollCalls.push([x, y]);
+    };
+
+    try {
+      router._scrollToHash('#hash%20target');
+      test.equal(scrollCalls, [[window.scrollX, 125 + window.scrollY]],
+        'encoded fragment resolves and preserves horizontal scroll');
+
+      router._scrollToHash('#missing-target');
+      router._scrollToHash('#%ZZ');
+      test.equal(scrollCalls.length, 1, 'missing and malformed fragments are ignored');
+    } finally {
+      window.scrollTo = scrollTo;
+      target.remove();
+    }
+  });
+}
+
+if (Meteor.isClient) {
   Tinytest.add('Router - dispatch - same route', function (test) {
     // if we go from one url to the next and its the same route, we don't
     // need to create a new controller instance. this tests that we keep
@@ -216,6 +247,24 @@ if (Meteor.isServer) {
     router.configureBodyParsers();
     var after = router.getHooks('onBeforeAction', 'anyRoute').length;
     test.equal(after - before, 2, 'json and urlencoded body parsers should be added as instance hooks');
+  });
+
+  Tinytest.add('Router - server - jquery warning fires only on Meteor 2 without client jquery', function (test) {
+    var needsWarning = Iron.Router._needsJqueryWarning;
+    test.isTrue(needsWarning(false, undefined), 'Meteor 2 without jquery in the client bundle warns');
+    test.isFalse(needsWarning(true, undefined), 'Meteor 2 with jquery in the client bundle does not warn');
+    test.isFalse(needsWarning(null, undefined), 'an unknown client bundle stays silent');
+    test.isFalse(needsWarning(false, true), 'Meteor 3 never warns (Blaze version is unknowable server-side)');
+    test.isFalse(needsWarning(true, true), 'Meteor 3 with jquery does not warn');
+  });
+
+  Tinytest.add('Router - server - client bundle jquery detection reads the program manifest', function (test) {
+    // The test client always contains jquery (the Tinytest driver depends on
+    // it), so the manifest check must report true here on every Meteor
+    // version - this is exactly the case the server Package namespace gets
+    // wrong, since the driver's jquery dependency is client-only.
+    test.equal(Iron.Router._clientBundleHasJquery(), true,
+      'jquery is present in the test client bundle');
   });
 
   // Route definition and start live at module scope: Tinytest re-runs test

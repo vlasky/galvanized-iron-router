@@ -131,13 +131,6 @@ declare module 'meteor/meteor' {
   }
 }
 
-// jQuery module declaration
-declare module 'meteor/jquery' {
-  const $: JQueryStatic;
-  const jQuery: JQueryStatic;
-  export { $, jQuery };
-}
-
 // Function prototype extension for deprecation
 declare global {
   interface Function {

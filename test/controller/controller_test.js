@@ -160,7 +160,7 @@ Tinytest.add('Controller - Iron.controller() lookup in event handlers', function
     var c1 = new Iron.Controller({layout: layout, id: 1});
     Tracker.flush();
 
-    $(el).find('div').trigger('click');
+    el.querySelector('div').click();
     test.isTrue(lastEvent, 'last event is set');
     test.equal(lastEvent.id, 1);
   });

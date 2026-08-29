@@ -84,9 +84,10 @@ interface HookOptions {
   except?: string | string[];
 }
 
-// Options for inserting views into the DOM
+// Options for inserting views into the DOM. `el` accepts a CSS selector, an
+// element, or an array-like wrapper of elements (e.g. a jQuery collection).
 interface InsertOptions {
-  el?: string | HTMLElement;
+  el?: string | HTMLElement | ArrayLike<HTMLElement>;
   nextNode?: Node;
   parentView?: Blaze.View;
 }

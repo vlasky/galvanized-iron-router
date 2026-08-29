@@ -1,7 +1,7 @@
 Galvanized Iron Router
 ==============================================================================
 
-[![Version](https://img.shields.io/badge/version-2.2.1-blue.svg)](https://atmospherejs.com/vlasky/galvanized-iron-router)
+[![Version](https://img.shields.io/badge/version-2.3.0-blue.svg)](https://atmospherejs.com/vlasky/galvanized-iron-router)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 Galvanized Iron Router is a fork of the classic Iron Router package, giving it a new lease of life by making it fully compatible with Meteor 3.0 and beyond. Just as galvanizing iron makes it rust-resistant and longer lasting, this fork ensures Iron Router continues to work reliably with modern Meteor applications.
@@ -20,6 +20,24 @@ meteor add vlasky:galvanized-iron-router
 ## Compatibility
 
 Galvanized Iron Router supports all versions of Meteor from version 2.8.1 onwards. It has been tested on Meteor 2.8.1, 3.4 and 3.5, including Meteor 3.5's Rspack bundler integration.
+
+Galvanized Iron Router's own code does not use jQuery, and since 2.3.0 the
+`jquery` dependency is weak: this package no longer pulls jQuery into your
+app. Applications on Blaze 3.1 or newer can omit the `jquery` package
+entirely and use Blaze's native DOM backend.
+
+**Note for Blaze 2.x and 3.0.x apps** (all Meteor 2 apps, and Meteor 3 apps
+not yet on Blaze 3.1): Blaze itself still requires jQuery at runtime. Nearly
+all apps already list `jquery` in `.meteor/packages` (Meteor's upgraders and
+app skeletons add it); if yours relied on this router to supply jQuery, run
+`meteor add jquery` when upgrading to 2.3.0+. To control the jQuery version,
+install it from npm (`meteor npm install jquery@<version>`) and the Meteor
+`jquery` package will detect and use it. On Meteor 2, when running in
+development, the router prints a server startup warning with this remedy if
+jQuery is missing from the client bundle.
+
+Custom `linkSelector` values and string `InsertOptions.el` values use
+standard CSS selector syntax.
 
 For Meteor 3.0+ projects, Galvanized Iron Router automatically adapts to:
 - Async/await execution model (no Fibers dependency)

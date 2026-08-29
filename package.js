@@ -1,7 +1,7 @@
 Package.describe({
   name: 'vlasky:galvanized-iron-router',
   summary: 'Galvanized Iron Router - a client/server routing system for Meteor 2.0 and 3.0+',
-  version: '2.2.1',
+  version: '2.3.0',
   git: 'https://github.com/vlasky/galvanized-iron-router'
 });
 
@@ -28,7 +28,14 @@ Package.onUse(function (api) {
   // Reactive state (DynamicTemplate uses ReactiveVar on both client and server)
   api.use('reactive-var');
   api.use('reactive-dict', 'client');
-  api.use('jquery@1.11.11 || 3.0.0', 'client');
+
+  // The router itself no longer uses jQuery. The weak dependency keeps load
+  // ordering and version compatibility when the app includes jquery (which
+  // Blaze <= 3.0.x still requires at runtime); it does not pull jquery in.
+  // Apps that relied on this package to supply jQuery must add it themselves:
+  // `meteor add jquery` (a development-mode server startup warning covers
+  // this on Meteor 2).
+  api.use('jquery@1.11.11 || 3.0.0', 'client', {weak: true});
 
   // UI/Template dependencies
   api.use('blaze@2.4.0 || 3.0.0');

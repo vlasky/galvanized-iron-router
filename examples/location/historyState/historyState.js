@@ -9,12 +9,12 @@ if (Meteor.isClient) {
   Template.hello.events({
     'submit #push': function(e, t) {
       e.preventDefault();
-      var state = $(e.target).find('input').val();
+      var state = e.currentTarget.querySelector('input').value;
       Iron.Location.go('/' + Random.id(), {historyState: state});
     },
     'submit #replace': function(e, t) {
       e.preventDefault();
-      var state = $(e.target).find('input').val();
+      var state = e.currentTarget.querySelector('input').value;
       Iron.Location.replaceState(state);
     }
   });
