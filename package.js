@@ -95,4 +95,6 @@ Package.onTest(function (api) {
   api.addFiles('test/router/route_test.js');
   api.addFiles('test/router/router_test.js');
   api.addFiles('test/router/route_controller_test.js');
+  api.addFiles('test/router/helpers_test.html', 'client');
+  api.addFiles('test/router/helpers_test.js', 'client');
 });

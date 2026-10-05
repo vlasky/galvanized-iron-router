@@ -73,12 +73,6 @@ declare module 'meteor/blaze' {
     // TemplateInstance constructor
     function TemplateInstance(view: View): TemplateInstance;
   }
-
-  // HTML namespace for helpers.js
-  namespace HTML {
-    function Raw(html: string): any;
-    function A(...args: any[]): any;
-  }
 }
 
 // Augment ReactiveVar to be callable without 'new'
