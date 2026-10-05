@@ -259,12 +259,15 @@ if (Meteor.isServer) {
   });
 
   Tinytest.add('Router - server - client bundle jquery detection reads the program manifest', function (test) {
-    // The test client always contains jquery (the Tinytest driver depends on
-    // it), so the manifest check must report true here on every Meteor
-    // version - this is exactly the case the server Package namespace gets
-    // wrong, since the driver's jquery dependency is client-only.
-    test.equal(Iron.Router._clientBundleHasJquery(), true,
-      'jquery is present in the test client bundle');
+    // Under the stock Tinytest drivers the test client always contains jquery
+    // (they depend on it), so the manifest check must report true on every
+    // Meteor version - this is exactly the case the server Package namespace
+    // gets wrong, since the driver's jquery dependency is client-only. The
+    // jQuery-free driver in test/drivers brings none, so there it must report
+    // false.
+    var driverBringsJquery = !Package['tinytest-plain-driver'];
+    test.equal(Iron.Router._clientBundleHasJquery(), driverBringsJquery,
+      'detection matches whether the test driver brings jquery into the client bundle');
   });
 
   // Route definition and start live at module scope: Tinytest re-runs test

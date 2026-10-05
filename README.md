@@ -19,7 +19,7 @@ meteor add vlasky:galvanized-iron-router
 
 ## Compatibility
 
-Galvanized Iron Router supports all versions of Meteor from version 2.8.1 onwards. It has been tested on Meteor 2.8.1, 3.4 and 3.5, including Meteor 3.5's Rspack bundler integration.
+Galvanized Iron Router supports all versions of Meteor from version 2.8.1 onwards. It has been tested on Meteor 2.8.1, 3.4 and 3.5, including Meteor 3.5's Rspack bundler integration. The test suite also passes against the Blaze 3.1.0-beta.0 pre-release, on both its jQuery and its native (jQuery-free) DOM backend.
 
 Galvanized Iron Router's own code does not use jQuery, and since 2.3.0 the
 `jquery` dependency is weak: this package no longer pulls jQuery into your
@@ -270,6 +270,40 @@ This is useful if you're contributing code to Galvanized Iron Router.
 git clone https://github.com/vlasky/galvanized-iron-router.git /home/user/code/packages/galvanized-iron-router
 cd my-project
 meteor add vlasky:galvanized-iron-router
+```
+
+### Running the tests
+The test suite uses Tinytest. From the repository root:
+
+```bash
+meteor test-packages ./                    # your default Meteor release
+meteor test-packages ./ --release 2.8.1    # the Meteor 2 leg
+```
+
+Open http://localhost:3000/ to see the results. To run two legs at the same
+time, give each its own port (`--port`) and its own copy of the repository:
+two instances started from the same directory collide on its `.npm` folder.
+
+Both stock Tinytest drivers depend on `jquery`, so those runs always have
+jQuery in the client bundle and Blaze 3.1+ selects its jQuery DOM backend. To
+exercise Blaze 3.1's native DOM backend, run the same suite with the
+jQuery-free driver in `test/drivers`:
+
+```bash
+METEOR_PACKAGE_DIRS="$PWD/test/drivers" meteor test-packages ./ \
+  --driver-package tinytest-plain-driver
+```
+
+The page then shows a plain-text summary (also available as
+`window.TEST_STATUS`). Its `jQuery present:` line must read `false`, otherwise
+the run is not on the native backend. This leg needs Blaze 3.1 or newer,
+because Blaze 2.x and 3.0.x fail at startup without jQuery. While Blaze 3.1 is
+a pre-release, Meteor only selects it when asked to explicitly:
+
+```bash
+METEOR_PACKAGE_DIRS="$PWD/test/drivers" meteor test-packages ./ \
+  --driver-package tinytest-plain-driver \
+  --extra-packages "blaze@=3.1.0-beta.0,blaze-tools@=2.1.0-beta.0,htmljs@=2.1.0-beta.0,html-tools@=2.1.0-beta.0,observe-sequence@=2.1.0-beta.0,spacebars@=2.1.0-beta.0,spacebars-compiler@=2.1.0-beta.0,templating-compiler@=2.1.0-beta.0,templating-runtime@=2.1.0-beta.0,templating-tools@=2.1.0-beta.0"
 ```
 
 ## License
