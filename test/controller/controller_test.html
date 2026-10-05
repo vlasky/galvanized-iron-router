@@ -20,3 +20,34 @@
     TriggerClick
   </div>
 </template>
+
+<template name="ControllerNoRerenderTest">
+  Static-{{> ControllerNoRerenderChild}}
+</template>
+
+<template name="ControllerNoRerenderChild">
+  Child
+</template>
+
+<template name="ControllerHelperSwapTest">
+  Who-{{who}}-{{hostId}}
+</template>
+
+<template name="ControllerMixedTest">
+  Mixed-{{who}}-{{ctrlId}}-{{> ControllerMixedChild}}
+</template>
+
+<template name="ControllerMixedChild">
+  Child
+</template>
+
+<template name="ControllerNavLayout">
+  {{> ControllerNav}}|{{> yield}}
+</template>
+
+<template name="ControllerNav">
+  Nav-{{activeClass 'stores'}}-{{activeClass 'users'}}
+</template>
+
+<template name="ControllerNavPageA">PageA</template>
+<template name="ControllerNavPageB">PageB</template>

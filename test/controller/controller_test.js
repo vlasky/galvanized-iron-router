@@ -228,3 +228,152 @@ Tinytest.add('Controller - helpers do not leak across native subclasses', functi
   test.isFalse('onlyA' in HelperB._helpers, 'sibling subclasses must not see each other\'s helpers');
   test.isTrue(!!HelperA._helpers.onlyA, 'subclass keeps its own helper');
 });
+
+// iron-router #1293: every controller change used to invalidate every template
+// and helper lookup made under the layout, so the layout content was torn down
+// and rebuilt on each route change even when nothing could resolve differently.
+var noRerenderCounts = {parent: 0, child: 0};
+Template.ControllerNoRerenderTest.onCreated(function () { noRerenderCounts.parent++; });
+Template.ControllerNoRerenderChild.onCreated(function () { noRerenderCounts.child++; });
+
+Tinytest.add('Controller - changing controllers without helpers does not re-render the layout content', function (test) {
+  noRerenderCounts = {parent: 0, child: 0};
+  var layout = new Iron.Layout;
+  withRenderedTemplate(layout.create(), function (el) {
+    layout.render('ControllerNoRerenderTest');
+    Tracker.flush();
+    test.equal(el.innerHTML.compact(), "Static-Child");
+
+    new Iron.Controller({layout: layout, id: 1});
+    Tracker.flush();
+    new Iron.Controller({layout: layout, id: 2});
+    Tracker.flush();
+
+    test.equal(el.innerHTML.compact(), "Static-Child");
+    test.equal(noRerenderCounts.parent, 1, 'parent template created once');
+    test.equal(noRerenderCounts.child, 1, 'included child template created once');
+  });
+});
+
+Tinytest.add('Controller - helper lookups follow a controller change', function (test) {
+  class SwapA extends Iron.Controller {}
+  class SwapB extends Iron.Controller {}
+  SwapA.helpers({
+    who: function () { return 'a'; },
+    hostId: function () { return this.options.id; }
+  });
+  SwapB.helpers({who: function () { return 'b'; }});
+
+  var layout = new Iron.Layout;
+  withRenderedTemplate(layout.create(), function (el) {
+    layout.render('ControllerHelperSwapTest');
+    Tracker.flush();
+    test.equal(el.innerHTML.compact(), "Who--");
+
+    // no helpers -> helpers
+    new SwapA({layout: layout, id: 1});
+    Tracker.flush();
+    test.equal(el.innerHTML.compact(), "Who-a-1");
+
+    // same controller class, new instance: helpers must be bound to it
+    new SwapA({layout: layout, id: 2});
+    Tracker.flush();
+    test.equal(el.innerHTML.compact(), "Who-a-2");
+
+    // helpers -> other helpers
+    new SwapB({layout: layout, id: 3});
+    Tracker.flush();
+    test.equal(el.innerHTML.compact(), "Who-b-");
+
+    // helpers -> no helpers
+    new Iron.Controller({layout: layout, id: 4});
+    Tracker.flush();
+    test.equal(el.innerHTML.compact(), "Who--");
+  });
+});
+
+// Helper lookups depend on the lookup host per helper name, so a controller
+// that declares helpers only invalidates the lookups of those names.
+Tinytest.add('Controller - controllers with unrelated helpers do not re-render the layout content', function (test) {
+  class UnrelatedHelpers extends Iron.Controller {}
+  UnrelatedHelpers.helpers({unrelated: function () { return 'x'; }});
+
+  noRerenderCounts = {parent: 0, child: 0};
+  var layout = new Iron.Layout;
+  withRenderedTemplate(layout.create(), function (el) {
+    layout.render('ControllerNoRerenderTest');
+    Tracker.flush();
+
+    new UnrelatedHelpers({layout: layout, id: 1});
+    Tracker.flush();
+    new UnrelatedHelpers({layout: layout, id: 2});
+    Tracker.flush();
+
+    test.equal(el.innerHTML.compact(), "Static-Child");
+    test.equal(noRerenderCounts.parent, 1, 'parent template created once');
+    test.equal(noRerenderCounts.child, 1, 'included child template created once');
+  });
+});
+
+var mixedCounts = {parent: 0, child: 0};
+Template.ControllerMixedTest.onCreated(function () { mixedCounts.parent++; });
+Template.ControllerMixedChild.onCreated(function () { mixedCounts.child++; });
+Template.ControllerMixedTest.helpers({
+  ctrlId: function () { var c = Iron.controller(); return c ? c.options.id : 'none'; }
+});
+
+Tinytest.add('Controller - a used helper and Iron.controller() update in place on a controller change', function (test) {
+  class WhoHelpers extends Iron.Controller {}
+  WhoHelpers.helpers({who: function () { return 'w' + this.options.id; }});
+
+  mixedCounts = {parent: 0, child: 0};
+  var layout = new Iron.Layout;
+  withRenderedTemplate(layout.create(), function (el) {
+    layout.render('ControllerMixedTest');
+    Tracker.flush();
+    test.equal(el.innerHTML.compact(), "Mixed--none-Child");
+
+    new WhoHelpers({layout: layout, id: 1});
+    Tracker.flush();
+    test.equal(el.innerHTML.compact(), "Mixed-w1-1-Child");
+
+    new WhoHelpers({layout: layout, id: 2});
+    Tracker.flush();
+    test.equal(el.innerHTML.compact(), "Mixed-w2-2-Child");
+
+    new Iron.Controller({layout: layout, id: 3});
+    Tracker.flush();
+    test.equal(el.innerHTML.compact(), "Mixed--3-Child");
+
+    test.equal(mixedCounts.parent, 1, 'parent template created once');
+    test.equal(mixedCounts.child, 1, 'included child template created once');
+  });
+});
+
+// A nav in the layout that reads the controller-supplied data context (the
+// common "active link" pattern) must follow route changes without the layout
+// being rebuilt.
+var navCreated = 0;
+Template.ControllerNav.onCreated(function () { navCreated++; });
+Template.ControllerNav.helpers({
+  activeClass: function (name) { return this.navbarName === name ? 'on' : 'off'; }
+});
+
+Tinytest.add('Controller - a layout nav follows the controller data without a rebuild', function (test) {
+  navCreated = 0;
+  var layout = new Iron.Layout;
+  withRenderedTemplate(layout.create(), function (el) {
+    var c1 = new Iron.Controller({layout: layout});
+    c1.layout('ControllerNavLayout', {data: function () { return {navbarName: 'stores'}; }});
+    c1.render('ControllerNavPageA');
+    Tracker.flush();
+    test.equal(el.innerHTML.compact(), "Nav-on-off|PageA");
+
+    var c2 = new Iron.Controller({layout: layout});
+    c2.layout('ControllerNavLayout', {data: function () { return {navbarName: 'users'}; }});
+    c2.render('ControllerNavPageB');
+    Tracker.flush();
+    test.equal(el.innerHTML.compact(), "Nav-off-on|PageB");
+    test.equal(navCreated, 1, 'nav template created once');
+  });
+});

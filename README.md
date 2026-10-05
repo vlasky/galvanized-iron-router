@@ -1,7 +1,7 @@
 Galvanized Iron Router
 ==============================================================================
 
-[![Version](https://img.shields.io/badge/version-2.3.0-blue.svg)](https://atmospherejs.com/vlasky/galvanized-iron-router)
+[![Version](https://img.shields.io/badge/version-2.4.0-blue.svg)](https://atmospherejs.com/vlasky/galvanized-iron-router)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 Galvanized Iron Router is a fork of the classic Iron Router package, giving it a new lease of life by making it fully compatible with Meteor 3.0 and beyond. Just as galvanizing iron makes it rust-resistant and longer lasting, this fork ensures Iron Router continues to work reliably with modern Meteor applications.
