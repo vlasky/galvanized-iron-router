@@ -1,3 +1,7 @@
+v2.4.1 / 2026-10-08
+==================
+* Update the bundled npm `body-parser` from 1.20.3 to 1.20.8, which clears the advisories `npm audit` reports for 2.4.0: `body-parser` GHSA-v422-hmwv-36x6 (an invalid `limit` value silently disabled request-size enforcement) and four denial-of-service advisories in its `qs` dependency (now 6.16.0), reachable through the `urlencoded` parser on server-side routes. Still the 1.x line, so Meteor 2 (Node 14) remains supported
+
 v2.4.0 / 2026-10-08
 ==================
 * The layout is no longer torn down and rebuilt on every route change (upstream iron-router #1293, open since 2015). Every `{{name}}` and `{{> template}}` lookup under a layout used to depend on the current controller, so each new route controller invalidated the layout template's render and recreated everything in it. Lookups now depend on the controller per helper name: a route change only re-runs the lookups of names that the old or the new controller declares as a helper (`MyController.helpers({...})`). Templates in the layout outside the `{{> yield}}` regions (nav, sidebar, header) keep their instances, state and subscriptions across navigation instead of firing `onDestroyed`/`onCreated`/`onRendered` again, and controller helpers used in the layout update in place. Reported, diagnosed and first fixed by @ddaydd (#8)

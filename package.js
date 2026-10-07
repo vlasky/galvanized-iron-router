@@ -1,12 +1,12 @@
 Package.describe({
   name: 'vlasky:galvanized-iron-router',
   summary: 'Galvanized Iron Router - a client/server routing system for Meteor 2.0 and 3.0+',
-  version: '2.4.0',
+  version: '2.4.1',
   git: 'https://github.com/vlasky/galvanized-iron-router'
 });
 
 Npm.depends({
-  'body-parser': '1.20.3'
+  'body-parser': '1.20.8'
 });
 
 Package.onUse(function (api) {
