@@ -1,3 +1,7 @@
+v2.4.2 / 2026-10-10
+==================
+* Fix `this.params.query` being `{}` (and `this.params.hash` being `null`) inside `onRun` and `onRerun` hooks, the remaining case of #6. Since the 2.1.3 fix, `MiddlewareStack.dispatch` parses params from the url it is given, and `_runRoute` dispatched the nested `onRun`/`onRerun` stacks with `req.url`, which the outer handlers (path-less, hence mounted) had already rewritten to the normalized, mount-relative path with no query string or hash. The empty query was merged over the controller's params for the duration of the hooks; everything after them (`onBeforeAction`, the action, `data`) re-parsed the full url and was unaffected. The nested stacks are now dispatched with the route's full url. This matters for any hook that must see the request before a global `onBeforeAction` that stops the chain, e.g. reading a query parameter in `onRun` for a logged-out visitor whose login gate never calls `this.next()`. Reported, diagnosed and fixed by @evolross (#9), with a regression test covering both hooks
+
 v2.4.1 / 2026-10-08
 ==================
 * Update the bundled npm `body-parser` from 1.20.3 to 1.20.8, which clears the advisories `npm audit` reports for 2.4.0: `body-parser` GHSA-v422-hmwv-36x6 (an invalid `limit` value silently disabled request-size enforcement) and four denial-of-service advisories in its `qs` dependency (now 6.16.0), reachable through the `urlencoded` parser on server-side routes. Still the 1.x line, so Meteor 2 (Node 14) remains supported
