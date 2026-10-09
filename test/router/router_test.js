@@ -194,6 +194,58 @@ if (Meteor.isClient) {
   });
 }
 
+if (Meteor.isClient) {
+  Tinytest.add('Router - dispatch - onRun and onRerun hooks see query params (GH #6)', function (test) {
+    // onRun and onRerun hooks run in their own nested MiddlewareStack. That
+    // stack must be dispatched with the full url: by the time the outer
+    // onRun/onRerun handler runs, req.url has been rewritten to the
+    // normalized, mount-relative path, and dispatching the nested stack with
+    // it re-parses params from a url with no query string or hash, merging an
+    // empty query over the controller's params for the duration of the hooks.
+    var router = new Iron.Router({autoRender: false, autoStart: false});
+    var rerun = new Tracker.Dependency;
+    var seen = {};
+
+    var snapshot = function (controller) {
+      return {
+        id: controller.params.id,
+        query: Object.assign({}, controller.params.query),
+        hash: controller.params.hash
+      };
+    };
+
+    router.route('/items/:id', {
+      onRun: function () {
+        seen.onRun = snapshot(this);
+        this.next();
+      },
+      onRerun: function () {
+        seen.onRerun = snapshot(this);
+        this.next();
+      },
+      action: function () {
+        rerun.depend();
+        seen.action = snapshot(this);
+        // This test isn't about rendering; stop explicitly (once the rerun
+        // has happened) to avoid warnings.
+        if (seen.onRerun)
+          this.stop();
+      }
+    });
+
+    router.dispatch('/items/42?token=abc&list[]=1&list[]=2#frag', {});
+
+    var expected = {id: '42', query: {token: 'abc', list: ['1', '2']}, hash: 'frag'};
+    test.equal(seen.onRun, expected, 'onRun hook params');
+    test.equal(seen.action, expected, 'action params');
+
+    rerun.changed();
+    Tracker.flush();
+
+    test.equal(seen.onRerun, expected, 'onRerun hook params');
+  });
+}
+
 Tinytest.add('Router - dispatch - error handling', function (test) {
   // TODO?
 });
