@@ -191,3 +191,57 @@ Tinytest.add('Location - a trailing #! on a real pathname is not a hash-style ur
     Iron.Location.start();
   }
 });
+
+Tinytest.add('Location - links that opt out of routing are left to the browser', function (test) {
+  // download links, rel="external" and Alt-clicks (browser download) were
+  // intercepted like any other same-origin link
+  var cases = [
+    {name: 'download attribute', setup: function (a) { a.setAttribute('download', ''); }},
+    {name: 'rel external (mixed case, several tokens)', setup: function (a) { a.setAttribute('rel', 'noopener External'); }},
+    {name: 'alt-click', init: {altKey: true}},
+    {name: 'middle button', init: {button: 1}},
+    {name: 'target attribute', setup: function (a) { a.setAttribute('target', '_blank'); }}
+  ];
+
+  // A synthetic click on an anchor the router leaves alone really activates
+  // the link (the test page would reload or open a window). Observe what the
+  // router did from a later document listener, then cancel the activation.
+  var routed;
+  var observe = function (e) {
+    routed = e.defaultPrevented;
+    e.preventDefault();
+  };
+  document.addEventListener('click', observe);
+
+  try {
+    cases.forEach(function (c) {
+      var link = document.createElement('a');
+      link.href = location.href;
+      if (c.setup) c.setup(link);
+      document.body.appendChild(link);
+      try {
+        routed = undefined;
+        link.dispatchEvent(new MouseEvent('click', Object.assign({bubbles: true, cancelable: true}, c.init || {})));
+        test.isFalse(routed, c.name + ' is not routed');
+      } finally {
+        link.remove();
+      }
+    });
+
+    // and rel values that merely contain the letters are not an opt-out
+    var link = document.createElement('a');
+    link.href = location.href;
+    link.setAttribute('rel', 'externalish noopener');
+    document.body.appendChild(link);
+    try {
+      routed = undefined;
+      link.dispatchEvent(new MouseEvent('click', {bubbles: true, cancelable: true}));
+      test.isTrue(routed, 'a rel token that is not exactly "external" is still routed');
+      Tracker.flush();
+    } finally {
+      link.remove();
+    }
+  } finally {
+    document.removeEventListener('click', observe);
+  }
+});
