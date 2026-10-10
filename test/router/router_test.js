@@ -287,6 +287,64 @@ if (Meteor.isClient) {
   });
 }
 
+if (Meteor.isClient) {
+  Tinytest.add('Router - dispatch - a rerun of the controller computation sees a hash-only change', function (test) {
+    // Router.start()'s location autorun handles a hash-only change by
+    // reconfiguring the current controller (configureFromUrl) without
+    // re-dispatching. The controller's computation used to dispatch with the
+    // url captured when it was created, and dispatch merges the params it
+    // parses from that url over this.params, so any rerun put the old hash
+    // back.
+    var router = new Iron.Router({autoRender: false, autoStart: false});
+    var rerun = new Tracker.Dependency;
+    var seen = [];
+
+    router.route('/items/:id', function () {
+      rerun.depend();
+      seen.push({id: this.params.id, hash: this.params.hash, v: this.params.query.v});
+      // not about rendering; stop once the rerun has been observed
+      if (seen.length === 2)
+        this.stop();
+    });
+
+    var controller = router.dispatch('/items/1?v=a#old', {});
+    Tracker.flush();
+    test.equal(seen[0], {id: '1', hash: 'old', v: 'a'});
+
+    controller.configureFromUrl('/items/1?v=a#new');
+    rerun.changed();
+    Tracker.flush();
+    test.equal(seen[1], {id: '1', hash: 'new', v: 'a'}, 'the rerun sees the new hash');
+  });
+
+  Tinytest.add('Router - start after stop runs the current route again', function (test) {
+    // start()'s autorun saw a (stopped) current controller and no previous
+    // location, so it only reconfigured it: the route stayed stopped and
+    // inert until the path changed.
+    var router = new Iron.Router({autoRender: false, autoStart: false});
+    var runs = 0;
+
+    // matches whatever url the test page is at
+    router.route('/(.*)', function () {
+      runs++;
+      this.stop();
+    });
+
+    try {
+      router.start();
+      Tracker.flush();
+      test.equal(runs, 1, 'the current url is routed on start');
+
+      router.stop();
+      router.start();
+      Tracker.flush();
+      test.equal(runs, 2, 'restarting the router routes the current url again');
+    } finally {
+      router.stop();
+    }
+  });
+}
+
 Tinytest.add('Router - dispatch - error handling', function (test) {
   // TODO?
 });
