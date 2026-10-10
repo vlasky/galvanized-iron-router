@@ -246,6 +246,47 @@ if (Meteor.isClient) {
   });
 }
 
+if (Meteor.isClient) {
+  Tinytest.add('Router - dispatch - a reused controller is no longer stopped', function (test) {
+    // A same-route navigation stops the controller and re-dispatches the same
+    // instance. isStopped used to stay true, so the beginRendering callback
+    // returned early and never cleared the regions the new run left unused.
+    var router = new Iron.Router({autoRender: false, autoStart: false});
+    var stops = 0;
+
+    router.route('/items/:id', {
+      onStop: function () { stops++; },
+      action: function () {
+        if (this.params.id === '1') {
+          this.render('ItemOne');
+          this.render('ItemAside', {to: 'aside'});
+        } else {
+          // a different main template: unused regions must be cleared
+          this.render('ItemTwo');
+        }
+      }
+    });
+
+    var controller = router.dispatch('/items/1', {});
+    Tracker.flush();
+    test.isFalse(controller.isStopped, 'running after the first dispatch');
+    test.isTrue(controller._layout.has('aside'), 'aside rendered for item 1');
+
+    var again = router.dispatch('/items/2', {});
+    test.equal(again, controller, 'same controller instance');
+    test.equal(stops, 1, 'onStop ran once for the first run');
+    test.isFalse(controller.isStopped, 'the reused controller is running again');
+    Tracker.flush();
+    test.isFalse(!!(controller._layout._regions.aside && controller._layout._regions.aside.template()),
+      'the aside region was cleared when the main template changed');
+
+    controller.stop();
+    controller.stop();
+    test.equal(stops, 2, 'stopping an already stopped controller does not rerun onStop');
+    test.isTrue(controller.isStopped);
+  });
+}
+
 Tinytest.add('Router - dispatch - error handling', function (test) {
   // TODO?
 });
