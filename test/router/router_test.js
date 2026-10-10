@@ -433,6 +433,61 @@ if (Meteor.isServer) {
     });
   });
 
+  // The body parsers are callback-style: they return before the body has
+  // been read and call next() later. The route's after hooks used to run as
+  // soon as the dispatch returned, i.e. before the action and before
+  // request.body existed.
+  var afterOrder = [];
+  Router.route('/test-after-hook-order', {
+    where: 'server',
+    onAfterAction: function () {
+      afterOrder.push('after:' + (this.request.body && this.request.body.n));
+    }
+  }).post(function () {
+    afterOrder.push('action:' + (this.request.body && this.request.body.n));
+    this.response.setHeader('Content-Type', 'application/json');
+    this.response.end(JSON.stringify({ok: true}));
+  });
+
+  Tinytest.addAsync('Router - server - after hooks run after the action when the body is streamed', function (test, onComplete) {
+    afterOrder.length = 0;
+    fetch(Meteor.absoluteUrl('test-after-hook-order'), {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({n: 7})
+    }).then(function (res) {
+      test.equal(res.status, 200);
+      return new Promise(function (resolve) { setTimeout(resolve, 20); });
+    }).then(function () {
+      test.equal(afterOrder, ['action:7', 'after:7'], 'the action runs first and the after hook sees the parsed body');
+    }).catch(function (err) {
+      test.fail('request failed: ' + err.message);
+    }).then(onComplete);
+  });
+
+  // A GET has no body: the parsers call next() synchronously and the route
+  // keeps its synchronous completion (after hooks run before dispatch returns).
+  var getOrder = [];
+  Router.route('/test-after-hook-order-get', {
+    where: 'server',
+    onAfterAction: function () { getOrder.push('after'); }
+  }).get(function () {
+    getOrder.push('action');
+    this.response.end('ok');
+  });
+
+  Tinytest.addAsync('Router - server - after hooks still run for a bodiless request', function (test, onComplete) {
+    getOrder.length = 0;
+    fetch(Meteor.absoluteUrl('test-after-hook-order-get')).then(function (res) {
+      test.equal(res.status, 200);
+      return new Promise(function (resolve) { setTimeout(resolve, 20); });
+    }).then(function () {
+      test.equal(getOrder, ['action', 'after']);
+    }).catch(function (err) {
+      test.fail('request failed: ' + err.message);
+    }).then(onComplete);
+  });
+
   Tinytest.addAsync('Router - server - async REST action rejection returns a 500', function (test, onComplete) {
     fetch(Meteor.absoluteUrl('test-async-error')).then(function (res) {
       test.equal(res.status, 500, 'rejection becomes a 500 instead of a hung request');
