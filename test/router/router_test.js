@@ -376,6 +376,16 @@ if (Meteor.isClient) {
     test.equal(aside.data().id, '2', 'region data follows the current controller');
     test.equal(asideOptions, {to: 'aside'}, 'the yieldRegions entry is not mutated');
 
+    // explicit falsy region data is data, not an invitation to substitute the
+    // route's data function; and the caller's options object stays untouched
+    var explicit = {to: 'footer', data: null};
+    third.render('PostFooter', explicit);
+    test.isNull(third._layout._regions.footer.data(), 'explicit null region data survives');
+    test.equal(explicit, {to: 'footer', data: null}, 'render() did not write the bound wrapper back onto the options');
+    var zero = {to: 'footer', data: 0};
+    third.render('PostFooter', zero);
+    test.equal(third._layout._regions.footer.data(), 0, 'explicit 0 region data survives');
+
     third.stop();
   });
 }
@@ -637,13 +647,17 @@ if (Meteor.isServer) {
   });
 
   // A GET has no body: the parsers call next() synchronously and the route
-  // keeps its synchronous completion (after hooks run before dispatch returns).
+  // keeps its synchronous completion (after hooks run before dispatch
+  // returns). A microtask queued by the action must therefore run AFTER the
+  // after hook; a wrapper that always returned a promise would defer the
+  // hook past it.
   var getOrder = [];
   Router.route('/test-after-hook-order-get', {
     where: 'server',
     onAfterAction: function () { getOrder.push('after'); }
   }).get(function () {
     getOrder.push('action');
+    Promise.resolve().then(function () { getOrder.push('microtask'); });
     this.response.end('ok');
   });
 
@@ -653,7 +667,7 @@ if (Meteor.isServer) {
       test.equal(res.status, 200);
       return new Promise(function (resolve) { setTimeout(resolve, 20); });
     }).then(function () {
-      test.equal(getOrder, ['action', 'after']);
+      test.equal(getOrder, ['action', 'after', 'microtask'], 'the after hook ran synchronously, before a microtask queued by the action');
     }).catch(function (err) {
       test.fail('request failed: ' + err.message);
     }).then(onComplete);
