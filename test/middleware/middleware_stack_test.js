@@ -375,3 +375,69 @@ Tinytest.addAsync('MiddlewareStack - a throwing drain callback is logged and doe
     onComplete();
   }, 40);
 });
+
+Tinytest.add('MiddlewareStack - a synchronous throw after next() does not complete the stack twice', function (test) {
+  var stack = new Iron.MiddlewareStack;
+  var whereEnv = {where: Meteor.isServer ? 'server' : 'client'};
+  var doneCalls = [];
+  var logged = [];
+  var origError = console.error;
+
+  stack.push(function (req, res, next) {
+    this.next();
+    throw new Error('late synchronous throw');
+  }, whereEnv);
+  stack.push(function (req, res, next) {
+    this.next();
+  }, whereEnv);
+
+  console.error = function () { logged.push(String(arguments[1] || arguments[0])); };
+  try {
+    stack.dispatch('/', {}, function (err) { doneCalls.push(err); });
+  } finally {
+    console.error = origError;
+  }
+
+  test.equal(doneCalls.length, 1, 'done is called exactly once');
+  test.isUndefined(doneCalls[0], 'the completion that next() produced wins');
+  test.equal(logged.length, 1, 'the late throw is logged');
+  test.isTrue(/late synchronous throw/.test(logged[0]));
+});
+
+Tinytest.add('MiddlewareStack - an ordinary throw still reaches the error path', function (test) {
+  var stack = new Iron.MiddlewareStack;
+  var whereEnv = {where: Meteor.isServer ? 'server' : 'client'};
+  var doneCalls = [];
+
+  stack.push(function (req, res, next) {
+    throw new Error('plain throw');
+  }, whereEnv);
+
+  stack.dispatch('/', {}, function (err) { doneCalls.push(err); });
+  test.equal(doneCalls.length, 1);
+  test.equal(doneCalls[0] && doneCalls[0].message, 'plain throw');
+});
+
+Tinytest.add('MiddlewareStack - a parameterised mount path strips what it matched', function (test) {
+  var stack = new Iron.MiddlewareStack;
+  var where = Meteor.isServer ? 'server' : 'client';
+  var seen = [];
+
+  // the pattern is 8 characters but matches 11 here; the old code sliced by
+  // pattern length and produced "/456/items"
+  stack.push('/api/:id', function (req, res, next) {
+    seen.push({url: this.url, reqUrl: req.url, id: this.params.id});
+    next();
+  }, {where: where, mount: true});
+
+  // a root mount matches an empty prefix and must leave the url alone
+  stack.push('/', function (req, res, next) {
+    seen.push({url: this.url});
+    next();
+  }, {where: where, mount: true});
+
+  stack.dispatch('/api/123456/items?token=abc', {});
+
+  test.equal(seen[0], {url: '/items', reqUrl: '/items', id: '123456'});
+  test.equal(seen[1], {url: '/api/123456/items'});
+});
