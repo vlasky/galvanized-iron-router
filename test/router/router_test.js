@@ -380,6 +380,43 @@ if (Meteor.isClient) {
   });
 }
 
+if (Meteor.isClient) {
+  Tinytest.addAsync('Router - a stopped controller no longer renders into the shared layout', function (test, onComplete) {
+    // An async action that settles after navigation used to overwrite the
+    // new route's region and layout.
+    var router = new Iron.Router({autoRender: false, autoStart: false});
+    var slow;
+
+    router.route('/slow', function () {
+      slow = this;
+      this.render('Slow');
+      setTimeout(function () {
+        slow.render('Late');
+        slow.layout('LateLayout');
+        slow.render('LateAside', {to: 'aside'});
+      }, 5);
+    });
+    router.route('/fast', function () {
+      this.render('Fast');
+    });
+
+    router.dispatch('/slow', {});
+    Tracker.flush();
+    router.dispatch('/fast', {});
+    Tracker.flush();
+
+    setTimeout(function () {
+      var layout = router._layout;
+      test.isTrue(slow.isStopped, 'the slow controller was stopped by the navigation');
+      test.equal(layout._regions.main.template(), 'Fast', 'main region still shows the current route');
+      test.notEqual(layout.template(), 'LateLayout', 'the layout template was not switched');
+      test.isFalse(layout.has('aside'), 'no region was created by the late render');
+      router._currentController.stop();
+      onComplete();
+    }, 25);
+  });
+}
+
 Tinytest.add('Router - dispatch - error handling', function (test) {
   // TODO?
 });
