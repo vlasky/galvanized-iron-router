@@ -382,6 +382,57 @@ if (Meteor.isServer) {
     });
   });
 
+  // An onAfterAction that throws after an async action used to surface as an
+  // unhandled rejection inside the drain callback (process exit on Node 15+);
+  // an async after hook that rejects was unhandled on every path.
+  // (A throwing sync hook still stops the hooks after it, as it always has,
+  // so the two failure modes get a route each.)
+  var afterHookFailures = [];
+  var asyncAction = async function () {
+    await new Promise(function (resolve) { setTimeout(resolve, 5); });
+    this.response.setHeader('Content-Type', 'application/json');
+    this.response.end(JSON.stringify({ok: true}));
+  };
+  Router.route('/test-async-after-throws', {
+    where: 'server',
+    onAfterAction: function () { afterHookFailures.push('sync'); throw new Error('sync after hook failed'); }
+  }).get(asyncAction);
+  Router.route('/test-async-after-rejects', {
+    where: 'server',
+    onAfterAction: async function () { afterHookFailures.push('async'); throw new Error('async after hook failed'); }
+  }).get(asyncAction);
+
+  Tinytest.addAsync('Router - server - throwing after hooks behind an async action do not crash the process', function (test, onComplete) {
+    var unhandled = [];
+    var logged = [];
+    var onUnhandled = function (reason) { unhandled.push(reason); };
+    var origError = console.error;
+
+    afterHookFailures.length = 0;
+    process.on('unhandledRejection', onUnhandled);
+    console.error = function () { logged.push(String(arguments[1] || arguments[0])); };
+
+    fetch(Meteor.absoluteUrl('test-async-after-throws')).then(function (res) {
+      test.equal(res.status, 200, 'the action with the throwing hook responded normally');
+      return fetch(Meteor.absoluteUrl('test-async-after-rejects'));
+    }).then(function (res) {
+      test.equal(res.status, 200, 'the action with the rejecting hook responded normally');
+      // give the drain callbacks and the rejected hook promise a tick to settle
+      return new Promise(function (resolve) { setTimeout(resolve, 30); });
+    }).then(function () {
+      test.equal(afterHookFailures, ['sync', 'async'], 'both after hooks ran');
+      test.equal(unhandled.length, 0, 'no unhandled rejection');
+      test.isTrue(logged.some(function (m) { return /sync after hook failed/.test(m); }), 'sync hook failure logged');
+      test.isTrue(logged.some(function (m) { return /async after hook failed/.test(m); }), 'async hook rejection logged');
+    }).catch(function (err) {
+      test.fail('request failed: ' + err.message);
+    }).then(function () {
+      console.error = origError;
+      process.removeListener('unhandledRejection', onUnhandled);
+      onComplete();
+    });
+  });
+
   Tinytest.addAsync('Router - server - async REST action rejection returns a 500', function (test, onComplete) {
     fetch(Meteor.absoluteUrl('test-async-error')).then(function (res) {
       test.equal(res.status, 500, 'rejection becomes a 500 instead of a hung request');

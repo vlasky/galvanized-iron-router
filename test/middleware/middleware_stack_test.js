@@ -331,3 +331,47 @@ Tinytest.addAsync('MiddlewareStack - late rejection after next() does not comple
     onComplete();
   }, 40);
 });
+
+Tinytest.addAsync('MiddlewareStack - a throwing drain callback is logged and does not stop the others', function (test, onComplete) {
+  // _onAsyncDrain callbacks (the route controller queues its after hooks
+  // there) run inside the fulfilment branch of the async handler's promise
+  // chain. A throw used to become an unhandled rejection, which exits the
+  // process on modern Node and silently dropped every later callback.
+  var stack = new Iron.MiddlewareStack;
+  var whereEnv = {where: Meteor.isServer ? 'server' : 'client'};
+  var ran = [];
+  var logged = [];
+  var origError = console.error;
+  var unhandled = [];
+  var onUnhandled = function (reason) { unhandled.push(reason); };
+
+  console.error = function () { logged.push(Array.prototype.slice.call(arguments)); };
+  if (Meteor.isServer)
+    process.on('unhandledRejection', onUnhandled);
+
+  stack.push(async function (req, res, next) {
+    await new Promise(function (resolve) { setTimeout(resolve, 5); });
+    this.next();
+  }, whereEnv);
+
+  var context = {
+    _onAsyncDrain: [
+      function () { ran.push('first'); throw new Error('after hook failed'); },
+      function () { ran.push('second'); }
+    ]
+  };
+
+  stack.dispatch('/', context, function () { ran.push('done'); });
+
+  setTimeout(function () {
+    console.error = origError;
+    if (Meteor.isServer)
+      process.removeListener('unhandledRejection', onUnhandled);
+
+    test.equal(ran, ['done', 'first', 'second'], 'every drain callback runs, after done');
+    test.equal(logged.length, 1, 'the failure is logged once');
+    test.isTrue(/after hook failed/.test(String(logged[0] && logged[0][1])), 'the logged error is the hook error');
+    test.equal(unhandled.length, 0, 'no unhandled rejection reaches the process');
+    onComplete();
+  }, 40);
+});
