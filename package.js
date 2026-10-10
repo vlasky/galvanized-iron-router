@@ -44,8 +44,12 @@ Package.onUse(function (api) {
   // Server-side dependencies
   api.use('webapp', 'server');
 
-  // Weak dependencies for migration support
+  // Weak dependencies for migration support. route_controller_client.js
+  // reads Package.reload at load time to register its hot-code-push
+  // migration (so onRun does not rerun after a reload); a weak dependency
+  // makes reload load first whenever the app has it, without pulling it in.
   api.use('appcache', {weak: true});
+  api.use('reload', 'client', {weak: true});
 
   // HTML templates (must be loaded via addFiles)
   api.addFiles('lib/dynamic-template/dynamic_template.html');
