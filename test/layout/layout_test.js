@@ -416,3 +416,35 @@ Tinytest.add('Layout - reactive region argument to contentFor clears the old reg
     test.equal(el.innerHTML.compact(), 'm[]a[]b[stuff]');
   });
 });
+
+Tinytest.add('Layout - region lifecycle callbacks fire', function (test) {
+  // The bridge from the region template's view hooks looked the public
+  // callback name up under the wrong key and ran "onundefined": none of
+  // onRegionCreated/onRegionRendered/onRegionDestroyed ever fired.
+  const layout = new Iron.Layout({template: 'LayoutOne'});
+  const events = [];
+
+  layout.onRegionCreated(function (region, tmpl, owner) {
+    events.push(['created', region, tmpl === layout._regions[region], owner === layout, this === tmpl.view]);
+  });
+  layout.onRegionRendered(function (region) { events.push(['rendered', region]); });
+  layout.onRegionDestroyed(function (region) { events.push(['destroyed', region]); });
+
+  const has = (kind, region) => events.some((e) => e[0] === kind && e[1] === region);
+
+  withDiv((el) => {
+    const view = Blaze.render(layout.create(), el);
+    Tracker.flush();
+
+    test.isTrue(has('created', 'main'), 'main region created');
+    test.isTrue(has('created', 'footer'), 'footer region created');
+    test.isTrue(has('rendered', 'main'), 'main region rendered');
+    const created = events.find((e) => e[0] === 'created' && e[1] === 'main');
+    test.equal(created.slice(2), [true, true, true],
+      'callback receives the region name, its dynamic template and the layout, with the view as this');
+
+    Blaze.remove(view);
+    test.isTrue(has('destroyed', 'main'), 'main region destroyed');
+    test.isTrue(has('destroyed', 'footer'), 'footer region destroyed');
+  });
+});
