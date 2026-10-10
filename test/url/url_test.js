@@ -232,3 +232,30 @@ Tinytest.add('Url - fromQueryString skips keys that fail to decode', function (t
     "an undecodable key must not become a property named 'undefined'");
   test.equal(q.ok, '2', 'well-formed pairs still parse');
 });
+
+Tinytest.add('Url - params always provides query and hash', function (test) {
+  var path = new Url('/items/:id');
+  var origWarn = console.warn;
+  console.warn = function () {};
+  try {
+    // one malformed escape used to drop both query and hash
+    var p = path.params('/items/1?bad=%ZZ&ok=2#frag');
+    test.equal(p.id, '1');
+    test.equal(p.query.ok, '2', 'valid pairs survive a malformed neighbour');
+    test.equal(p.hash, 'frag');
+
+    p = path.params('/items/%E0%A4%A?x=1#f');
+    test.isUndefined(p.id, 'the undecodable segment itself is undefined');
+    test.equal(p.query, {x: '1'}, 'query still parsed');
+    test.equal(p.hash, 'f', 'hash still parsed');
+  } finally {
+    console.warn = origWarn;
+  }
+
+  test.equal(path.params('/items/1').query, {}, 'query defaults to an empty object');
+  test.isNull(path.params('/items/1').hash, 'hash defaults to null');
+  test.isNull(path.params('/items/1#').hash, 'an empty fragment is null');
+  test.equal(path.params('/items/1?q=a?b').query.q, 'a?b', 'a ? inside a value is not a delimiter');
+  test.equal(path.params('/items/1#frag?x=1').hash, 'frag?x=1', 'a ? inside the fragment belongs to the fragment');
+  test.equal(path.params('/items/1#frag?x=1').query, {}, 'and is not read as a query string');
+});
