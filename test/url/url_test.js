@@ -274,3 +274,98 @@ Tinytest.add('Url - toQueryString: undefined is a bare key, null is omitted', fu
   test.equal(path.resolve({}, {query: {foo: undefined, bar: 1}}), '/posts?foo&bar=1');
   test.equal(path.resolve({}, {query: {foo: null, bar: 1}}), '/posts?bar=1');
 });
+
+Tinytest.add('Url - bare * is a catch-all that matches and resolves', function (test) {
+  var path = new Url('/files/*');
+  test.isTrue(path.test('/files/a/b/c'), 'matches nested paths');
+  test.isFalse(path.test('/files/'), 'needs something to capture');
+  test.isFalse(path.test('/other'));
+  test.equal(path.params('/files/a/b?x=1')[0], 'a/b', 'captured positionally');
+  test.equal(path.resolve(['a/b']), '/files/a/b', 'resolved positionally, slashes kept');
+
+  var two = new Url('/f/*/x/*');
+  test.equal(two.resolve(['a', 'b/c']), '/f/a/x/b/c');
+  test.equal(Array.prototype.slice.call(two.params('/f/a/x/b/c')), ['a', 'b/c']);
+
+  var literal = new Url('/a\\*b');
+  test.isTrue(literal.test('/a*b'), 'an escaped star is a literal');
+  test.isFalse(literal.test('/axb'));
+  test.equal(literal.resolve({}), '/a*b');
+});
+
+Tinytest.add('Url - resolve handles every pattern the matcher accepts', function (test) {
+  // repeat params
+  var star = new Url('/files/:path*');
+  test.equal(star.resolve({path: 'a/b'}), '/files/a/b', ':name* from a string');
+  test.equal(star.resolve({path: ['a', 'b c']}), '/files/a/b%20c', ':name* from a list');
+  test.equal(star.resolve({}), '/files', ':name* omitted');
+  test.equal(star.params('/files/a/b/c').path, 'a/b/c');
+
+  var plus = new Url('/files/:path+');
+  test.equal(plus.resolve({path: 'a/b'}), '/files/a/b', ':name+ no longer leaves a literal +');
+  test.isNull(plus.resolve({}), ':name+ is required');
+
+  // unnamed and named catch-all captures
+  test.equal(new Url('/files/(.*)').resolve(['a/b']), '/files/a/b');
+  test.equal(new Url('/files/:path(.*)').resolve({path: 'a/b'}), '/files/a/b');
+
+  // a single-segment param encodes a slash so the value round-trips
+  var single = new Url('/p/:id');
+  test.equal(single.resolve({id: 'a/b'}), '/p/a%2Fb');
+  test.equal(single.params(single.resolve({id: 'a/b'})).id, 'a/b');
+  test.equal(new Url('/p/:id(\\d+)').resolve({id: 12}), '/p/12');
+
+  // an omitted optional param takes its prefix with it
+  var format = new Url('/file.:ext?');
+  test.equal(format.resolve({}), '/file');
+  test.equal(format.resolve({ext: 'json'}), '/file.json');
+  test.isTrue(format.test('/file'));
+  test.equal(new Url('/p/:a/:b?/:c?').resolve({a: '1'}), '/p/1');
+  test.equal(new Url('/p/:a/:b?').resolve({a: '1'}, {query: {q: '1'}}), '/p/1?q=1', 'no stray slash before the query');
+
+  // trailing slash policy follows the matcher
+  test.equal(new Url('/posts/').resolve({}), '/posts');
+  test.equal(new Url('/posts/', {strict: true}).resolve({}), '/posts/');
+  test.equal(new Url('/').resolve({}), '/');
+});
+
+Tinytest.add('Url - resolve leaves the query string and hash untouched', function (test) {
+  var path = new Url('/posts');
+  // slash normalisation used to run after these were appended
+  test.equal(path.resolve({}, {query: 'u=https://e.com/a//b'}), '/posts?u=https://e.com/a//b');
+  test.equal(path.resolve({}, {hash: 'a//b/'}), '/posts#a//b/');
+  test.equal(path.resolve({}, {hash: '#frag'}), '/posts#frag');
+  test.equal(path.resolve({}, {hash: 'a b'}), '/posts#a%20b');
+});
+
+Tinytest.add('Url - resolve keeps slashes only where the pattern can match them', function (test) {
+  // a custom capture that accepts the value with its slashes
+  var custom = new Url('/p/:id(a/b)');
+  test.equal(custom.resolve({id: 'a/b'}), '/p/a/b');
+  test.isTrue(custom.test(custom.resolve({id: 'a/b'})), 'round-trips');
+  test.equal(new Url('/p/:id([a-z]+/[a-z]+)').resolve({id: 'x/y'}), '/p/x/y');
+  // a plain param cannot match a slash, so it is encoded
+  test.equal(new Url('/p/:id').resolve({id: 'a/b'}), '/p/a%2Fb');
+
+  // lists are segments only for repeat params; elsewhere they stringify as before
+  test.equal(new Url('/p/:id').resolve({id: ['a', 'b']}), '/p/a%2Cb');
+  test.equal(new Url('/files/:path+').resolve({path: ['a', 'b']}), '/files/a/b');
+  test.isNull(new Url('/files/:path+').resolve({path: []}), 'an empty list does not satisfy a required repeat');
+  test.equal(new Url('/files/:path*').resolve({path: []}), '/files');
+  test.isNull(new Url('/p/:id').resolve({id: null}), 'null is a missing value');
+});
+
+Tinytest.add('Url - backslash escapes in a pattern reach the regexp as before', function (test) {
+  // an escaped special is a literal; an escaped letter keeps its regexp meaning
+  var digit = new Url('/a\\d');
+  test.isTrue(digit.test('/a1'));
+  test.isFalse(digit.test('/ad'));
+  var star = new Url('/a\\*b');
+  test.isTrue(star.test('/a*b'));
+  test.isFalse(star.test('/axb'));
+  test.equal(star.resolve({}), '/a*b');
+  // the default capture excludes a backslash as well as a slash
+  var plain = new Url('/p/:id');
+  test.isFalse(plain.test('/p/a\\b'));
+  test.isTrue(plain.test('/p/a%5Cb'));
+});

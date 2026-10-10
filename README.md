@@ -217,9 +217,26 @@ A route's name is accessible via `route.getName()`. For example: `Router.current
 
 It's not strictly required, but Iron Router works best when routes are declared on both client and server. This allows the client to route to the server and vice-versa.
 
-### Catchall routes
+### Catchall and repeat routes
 
-Iron Router uses [path-to-regexp](https://github.com/pillarjs/path-to-regexp). The syntax for catchall routes is `'/(.*)'`.
+Route patterns use the [path-to-regexp](https://github.com/pillarjs/path-to-regexp)
+syntax. A catchall segment can be written in any of these equivalent ways:
+
+```javascript
+Router.route('/files/*');            // positional: this.params[0] is 'a/b/c'
+Router.route('/files/(.*)');         // the same, path-to-regexp style
+Router.route('/files/:path*');       // named, zero or more segments: this.params.path
+Router.route('/files/:path+');       // named, one or more segments
+Router.route('/files/:path(.*)');    // named, custom capture
+```
+
+All of them match `/files/a/b/c` and all of them can be generated back with
+`Router.path`, `pathFor` and `linkTo`: pass the positional value in an array
+(`Router.path('files', ['a/b/c'])`) or the named value as a string or a list of
+segments (`{path: 'a/b/c'}` or `{path: ['a', 'b', 'c']}`). Slashes in a catchall
+or repeat value are kept; a slash in an ordinary `:param` value is
+percent-encoded so that the value stays a single segment. To match a literal
+`*`, escape it: `'/a\\*b'`.
 
 ### Template Lookup
 
