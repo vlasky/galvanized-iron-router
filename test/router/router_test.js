@@ -345,6 +345,41 @@ if (Meteor.isClient) {
   });
 }
 
+if (Meteor.isClient) {
+  Tinytest.add('Router - yieldRegions data follows the current controller and leaves the options untouched', function (test) {
+    // render() used to write the route's data function onto the yieldRegions
+    // entry itself and Controller.render then bound it in place. The region
+    // stayed bound to the first controller instance (so a later visit showed
+    // the first visit's data) and every render nested another wrapper.
+    var router = new Iron.Router({autoRender: false, autoStart: false});
+    var asideOptions = {to: 'aside'};
+
+    router.route('/post/:id', {
+      template: 'Post',
+      yieldRegions: {PostAside: asideOptions},
+      data: function () { return {id: this.params.id}; }
+    });
+    router.route('/elsewhere', function () {
+      this.render('Elsewhere');
+    });
+
+    var first = router.dispatch('/post/1', {});
+    Tracker.flush();
+    var aside = first._layout._regions.aside;
+    test.equal(aside.data().id, '1', 'region data for the first visit');
+
+    router.dispatch('/elsewhere', {});
+    Tracker.flush();
+    var third = router.dispatch('/post/2', {});
+    Tracker.flush();
+    test.notEqual(third, first, 'a new controller instance after visiting another route');
+    test.equal(aside.data().id, '2', 'region data follows the current controller');
+    test.equal(asideOptions, {to: 'aside'}, 'the yieldRegions entry is not mutated');
+
+    third.stop();
+  });
+}
+
 Tinytest.add('Router - dispatch - error handling', function (test) {
   // TODO?
 });
