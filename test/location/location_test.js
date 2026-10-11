@@ -98,3 +98,96 @@ Tinytest.add('Location - configure and start reject an invalid linkSelector', fu
     Iron.Location.start();
   }
 });
+
+Tinytest.add('Location - going to the current url with a fragment reruns observers (upstream #557)', function (test) {
+  // A click on a link to the current url with a fragment is intercepted, so
+  // the browser never re-scrolls; the router must be rerun to do it instead.
+  var pushes = 0;
+  var runs = 0;
+  var comp;
+  var ownPush = Object.getOwnPropertyDescriptor(history, 'pushState');
+  var ownReplace = Object.getOwnPropertyDescriptor(history, 'replaceState');
+
+  history.pushState = function () { pushes++; };
+  history.replaceState = function () {};
+
+  try {
+    comp = Tracker.autorun(function () {
+      Iron.Location.get();
+      runs++;
+    });
+
+    Iron.Location.go('/location-fragment-test#section');
+    Tracker.flush();
+    test.equal(runs, 2, 'a new url reruns observers');
+    test.equal(pushes, 1, 'a new url is pushed onto the history');
+
+    Iron.Location.go('/location-fragment-test#section');
+    Tracker.flush();
+    test.equal(runs, 3, 'the same url with a fragment reruns observers again');
+    test.equal(pushes, 1, 'but is not pushed onto the history again');
+
+    Iron.Location.go('/location-fragment-test');
+    Tracker.flush();
+    Iron.Location.go('/location-fragment-test');
+    Tracker.flush();
+    test.equal(runs, 4, 'the same url without a fragment is still a no-op');
+    test.equal(pushes, 2);
+  } finally {
+    if (comp)
+      comp.stop();
+    // put the location state back in step with the real url and history
+    // state (the history stubs are still in place, so nothing is written)
+    Iron.Location.go(location.href, {replaceState: true, historyState: history.state});
+    Tracker.flush();
+    if (ownPush) Object.defineProperty(history, 'pushState', ownPush); else delete history.pushState;
+    if (ownReplace) Object.defineProperty(history, 'replaceState', ownReplace); else delete history.replaceState;
+  }
+});
+
+Tinytest.add('Location - a trailing #! on a real pathname is not a hash-style url (upstream #1584)', function (test) {
+  var href = location.href;
+  var historyState = history.state;
+  var state;
+
+  try {
+    Iron.Location.stop();
+
+    // some crawlers append a bare "#!"; this used to be rewritten to "/"
+    history.replaceState(null, null, '/posts/hello#!');
+    Iron.Location.start();
+    state = Iron.Location.get();
+    test.equal(state.pathname, '/posts/hello', 'the pathname is kept');
+    test.equal(state.hash, '#!', 'the fragment is kept');
+    Iron.Location.stop();
+
+    // the legacy hash-style url (root pathname) is still rewritten
+    history.replaceState(null, null, '/#!posts/hello?x=1');
+    Iron.Location.start();
+    state = Iron.Location.get();
+    test.equal(state.pathname, '/posts/hello', 'a hash-style url is converted to a pathname');
+    test.equal(state.search, '?x=1', 'its query string is kept');
+    test.equal(state.hash, '', 'and the hashbang is gone');
+    Iron.Location.stop();
+
+    // a hash path with content is still converted whatever the pathname
+    history.replaceState(null, null, '/old/#!items/5');
+    Iron.Location.start();
+    state = Iron.Location.get();
+    test.equal(state.pathname, '/items/5', 'a non-empty hash path wins over the pathname, as before');
+    Iron.Location.stop();
+
+    // a hashbang followed only by a query is not bare either
+    history.replaceState(null, null, '/old/#!?x=1');
+    Iron.Location.start();
+    state = Iron.Location.get();
+    test.equal(state.pathname, '/', 'a hashbang carrying a query is still converted');
+    test.equal(state.search, '?x=1', 'and keeps the query');
+  } finally {
+    // Location.start installs its own {initial: true} history state, which is
+    // what the page had at load, so Location and history stay consistent
+    Iron.Location.stop();
+    history.replaceState(historyState, null, href);
+    Iron.Location.start();
+  }
+});
