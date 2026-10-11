@@ -21,8 +21,3 @@ Router.route('/two', function () {
   // render the PageTwoFooter template to the footer region
   this.render('PageTwoFooter', {to: 'footer'});
 });
-
-Router.use(function () {
-  if (!this.willBeHandledOnServer())
-    console.error("No route found for url " + JSON.stringify(this.url) + ".");
-});
