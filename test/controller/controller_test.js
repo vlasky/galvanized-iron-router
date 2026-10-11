@@ -359,6 +359,115 @@ Template.ControllerNav.helpers({
   activeClass: function (name) { return this.navbarName === name ? 'on' : 'off'; }
 });
 
+Tinytest.add('Controller - a contentFor block in the layout itself survives a main template change (upstream #1311)', function (test) {
+  // The route controller clears the regions a route did not render into when
+  // the main template changes. A region filled by a {{#contentFor}} placed in
+  // the layout template (static content around the yields) was cleared with
+  // them and, since the layout is not re-rendered on a route change, never
+  // came back.
+  var router = new Iron.Router({autoRender: false, autoStart: false, layoutTemplate: 'ControllerStaticFooterLayout'});
+  var controller;
+  var data = function () { return {footerLabel: 'L'}; };
+
+  router.route('/static-footer/a', {data: data, action: function () { this.render('ControllerStaticFooterPageA'); }});
+  router.route('/static-footer/b', {data: data, action: function () { this.render('ControllerStaticFooterPageB'); }});
+  // overrides the footer with content and data of its own
+  router.route('/static-footer/c', {data: data, action: function () {
+    this.render('ControllerStaticFooterPageA');
+    this.render('ControllerStaticFooterOverride', {to: 'footer', data: {footerLabel: 'c'}});
+  }});
+  // a contentFor inside the page template
+  router.route('/static-footer/d', {data: data, action: function () { this.render('ControllerStaticFooterPageD'); }});
+
+  var go = function (path) {
+    controller = router.dispatch(path, {});
+    Tracker.flush();
+  };
+
+  withDiv(function (el) {
+    var view = Blaze.render(router._layout.create(), el);
+    try {
+      go('/static-footer/a');
+      test.equal(el.innerHTML.compact(), 'PageA|Static-L');
+
+      go('/static-footer/b');
+      test.equal(el.innerHTML.compact(), 'PageB|Static-L', 'the layout\'s own footer is kept across a main template change');
+
+      go('/static-footer/c');
+      test.equal(el.innerHTML.compact(), 'PageA|Override-c', 'a route can still render into the region');
+
+      go('/static-footer/b');
+      test.equal(el.innerHTML.compact(), 'PageB|Static-L', 'the layout\'s content comes back with the layout\'s data, not the route\'s');
+
+      go('/static-footer/d');
+      test.equal(el.innerHTML.compact(), 'PageD|FooterD', 'a contentFor in the page fills the region');
+
+      go('/static-footer/a');
+      test.equal(el.innerHTML.compact(), 'PageA|Static-L', 'and the layout\'s content comes back after it');
+    } finally {
+      if (controller) controller.stop();
+      Blaze.remove(view);
+    }
+  });
+});
+
+Tinytest.add('Controller - a contentFor block in a page template is still cleared on a main template change', function (test) {
+  var router = new Iron.Router({autoRender: false, autoStart: false, layoutTemplate: 'ControllerPlainFooterLayout'});
+  var controller;
+
+  router.route('/plain-footer/d', function () { this.render('ControllerStaticFooterPageD'); });
+  router.route('/plain-footer/b', function () { this.render('ControllerStaticFooterPageB'); });
+
+  withDiv(function (el) {
+    var view = Blaze.render(router._layout.create(), el);
+    try {
+      controller = router.dispatch('/plain-footer/d', {});
+      Tracker.flush();
+      test.equal(el.innerHTML.compact(), 'PageD|FooterD');
+
+      controller = router.dispatch('/plain-footer/b', {});
+      Tracker.flush();
+      test.equal(el.innerHTML.compact(), 'PageB|', 'the page\'s footer went with the page');
+    } finally {
+      if (controller) controller.stop();
+      Blaze.remove(view);
+    }
+  });
+});
+
+var showStaticFooter = new ReactiveVar(true);
+Template.ControllerToggleFooterLayout.helpers({
+  showStaticFooter: function () { return showStaticFooter.get(); }
+});
+
+Tinytest.add('Controller - a layout contentFor block that goes away takes its content with it', function (test) {
+  var router = new Iron.Router({autoRender: false, autoStart: false, layoutTemplate: 'ControllerToggleFooterLayout'});
+  var controller;
+
+  router.route('/toggle-footer/a', function () { this.render('ControllerStaticFooterPageA'); });
+
+  showStaticFooter.set(true);
+  withDiv(function (el) {
+    var view = Blaze.render(router._layout.create(), el);
+    try {
+      controller = router.dispatch('/toggle-footer/a', {});
+      Tracker.flush();
+      test.equal(el.innerHTML.compact(), 'PageA|Toggle');
+
+      showStaticFooter.set(false);
+      Tracker.flush();
+      test.equal(el.innerHTML.compact(), 'PageA|', 'the region is cleared when the block is destroyed');
+
+      showStaticFooter.set(true);
+      Tracker.flush();
+      test.equal(el.innerHTML.compact(), 'PageA|Toggle', 'and filled again when it comes back');
+    } finally {
+      if (controller) controller.stop();
+      Blaze.remove(view);
+    }
+  });
+});
+
 Tinytest.add('Controller - a layout nav follows the controller data without a rebuild', function (test) {
   navCreated = 0;
   var layout = new Iron.Layout;
