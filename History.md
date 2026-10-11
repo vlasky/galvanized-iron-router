@@ -1,3 +1,18 @@
+v2.4.4 / 2026-10-11
+==================
+Ten long-standing problems inherited from upstream iron-router, found by triaging its open issue backlog against this fork. Each is a correction with no intentional API change and, the example fix aside, a regression test; the upstream issue numbers are given for reference.
+
+* A route whose name is an integer string (`Router.route('/404')`) was aliased as `Router.routes['404']`, which made the routes array sparse and `findFirstRoute` throw on the holes on every dispatch, client and server. Integer names are no longer aliased; use `Router.findRouteByName` (upstream #986, #1188)
+* `Router.go('/path', null, {query, hash})` and `this.redirect('/path', ...)` dropped the `query` and `hash` options; only the route-name form applied them. The query is appended to any query already in the path and the hash replaces any hash there; the path itself is left as given (upstream #1610, #1212)
+* `Router.plugin('loading', {loadingTemplate: ...})` was ignored whenever a route had `waitOn`: the loading hook the router injects ahead of the before hooks ran without the plugin's options and rendered the default "Loading..." text instead (upstream #1148)
+* Clicking a link to the current url with a fragment did nothing: the router intercepted the click, so the browser never re-scrolled, and the unchanged location never reran the router's own hash scrolling. `Iron.Location.go` to a url equal to the current one with a fragment now reruns its observers instead of being a no-op (upstream #557)
+* `Url.toQueryString` serialised `undefined` and `null` values as `foo=undefined` and `foo=null`. An `undefined` value is now the bare key (`?foo`), which is how a key without a value parses, so a parsed query round-trips (a bare `?flag` used to come back as the string "undefined" after `pathFor` with `query=`, or after any navigation in `useHashPaths` mode); `null` values and `undefined` array elements are omitted. To leave a key out, omit it or set it to `null` (upstream #1277)
+* Yielding a region from inside its own content (a page template with a bare `{{> yield}}`, or the layout template rendered as a page) failed with Blaze's opaque "Expected template rendered with Blaze.render"; it now raises an error naming the region and the cause (upstream #1218)
+* A url with a real pathname and a bare `#!` fragment (some crawlers append one) was taken for a legacy hash-style url and rewritten to the root. A bare `#!` is now left alone; a hash path with content after the `!` is still converted as before (upstream #1584, #1185)
+* `Router.current()` observers are invalidated as soon as the current controller changes, not after the synchronous dispatch; a lazily recomputed value read inside a hook or action saw the previous controller (upstream #1253). A side effect worth knowing: a route whose hooks, `waitOn` or action read `Router.current()` used to run twice on every dispatch, because the late invalidation reran the controller's computation; it now runs once
+* **Guide:** the "404s and Client vs Server Routes" section (and the introduction) claimed the server sends a 404 for unknown urls. That code was disabled in October 2014, before the 1.0 release; only the 1.0.0 pre-releases ever sent one. The section now describes what happens and gives a tested catch-all server route recipe for answering unknown urls with a 404
+* The `examples/router/dynamic_layouts` example called `Router.use`, which this router does not define, so it threw at load
+
 v2.4.3 / 2026-10-10
 ==================
 Eleven fixes from two independent code audits of 2.4.2 (one by Claude, one by OpenAI Codex), all but the last with a regression test. No intentional API changes; the behaviour changes found by the same audits follow in 2.5.0.
