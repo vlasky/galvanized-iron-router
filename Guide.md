@@ -134,8 +134,9 @@ The router is *aware* of all the routes on the client and the server. This means
 you can click a link that takes you to a server route, or it might take you to a
 client route. On the server, a url that matches no server route is handed on to
 Meteor, which serves the client application; the client router then renders
-your `notFoundTemplate` if no client route matches either. The server does not
-send a 404 status for an unknown url.
+your `notFoundTemplate` if no client route matches either. By default the server
+sends that page with a 200 status; set `notFoundStatusCode` to send a 404 instead
+(see [404s and Client vs Server Routes](#404s-and-client-vs-server-routes)).
 
 ### Reactivity
 Your route functions and most hooks are run in a reactive computation. This
@@ -813,7 +814,10 @@ Router.configure({
 
   notFoundTemplate: 'RouteNotFound',
 
-  noRoutesTemplate: 'ReplacesSplashScreen'
+  noRoutesTemplate: 'ReplacesSplashScreen',
+
+  // server: send the client application with a 404 status for unknown urls
+  notFoundStatusCode: 404
 });
 ```
 
@@ -966,13 +970,46 @@ will see if there is a server route defined for that url. If there is none, the
 request is passed on to Meteor, which serves the client application with a 200
 status whether or not a client route exists for the url. The client router then
 renders your `notFoundTemplate` (or its default "not found" text) when no client
-route matches. Iron Router does not send a 404 http status code for unknown urls
-by itself.
+route matches. By default, then, an unknown url gets a 200 and a not-found page,
+which search engines index as a real page.
 
-To answer unknown urls with a 404, define a server catch-all route after all of
-your other routes. The router records, for each request, whether a client route
-matched it, so the catch-all can hand those requests on to Meteor and answer the
-rest itself:
+To send a 404 status instead, set the `notFoundStatusCode` option (server side,
+or in shared code):
+
+```javascript
+Router.configure({
+  notFoundStatusCode: 404
+});
+```
+
+When a url matches no server route and no client route the server knows about,
+the router sets that status on the response and still hands the request on to
+Meteor, which serves the client application with it (Meteor keeps a status that
+is already set on the response). Users see your `notFoundTemplate` as before;
+browsers and search engines see a 404. Any status from 400 to 599 is accepted,
+`null` restores the default 200, and anything else is rejected at `configure`
+time. The option is off by default because of the first caveat below.
+
+The server only knows about client routes defined in code it loads too (a shared
+directory such as `lib/` or `both/`). Routes defined in client-only files, or
+added on the client at runtime, are invisible to it, so their urls would be
+served with the 404 status (the page still works, but search engines drop it).
+Define your routes in shared code before turning the option on. Second, the
+status is set before the request is handed on. The router joins Meteor's connect
+handlers when startup completes, so handlers registered at load time or
+synchronously inside a `Meteor.startup` callback run before it and are not
+affected; a handler registered later (after an `await` or a callback in a
+startup function, as a GraphQL server often is, or at runtime) runs after the
+router and sees a response whose status is already 404. Such a handler is fine
+if it sets its own status with `writeHead` or `statusCode`; one that only calls
+`res.end()` would send the 404. Static files from `public/` and the client bundle are served
+by Meteor before the router sees the request, so they never get the status.
+
+If you would rather answer unknown urls with a plain 404 body of your own,
+without serving the client application, define a server catch-all route after
+all of your other routes. The router records, for each request, whether a client
+route matched it, so the catch-all can hand those requests on to Meteor and
+answer the rest itself:
 
 ```javascript
 // server code, after every other Router.route call
@@ -986,16 +1023,15 @@ Router.route('/(.*)', function () {
 }, {where: 'server'});
 ```
 
-Two caveats. The server only knows about client routes defined in code it loads
-too (a shared directory such as `lib/` or `both/`); routes defined in client-only
-files, or added on the client at runtime, are invisible to it and would be
-answered with a 404. And the catch-all must be defined after all of your other
-routes, client ones included, so that every other route has been examined (and
-any matching client route recorded) before it runs. The 404 response is the
-plain body you write; the client `notFoundTemplate` is not involved. Finally,
-the router joins Meteor's connect handlers at startup, so any connect handler
-your app registers later (`WebApp.connectHandlers.use` after startup) sits
-behind the catch-all and its urls would be answered with the 404 too.
+The same client-only-routes caveat applies, and here such a url gets the plain
+body rather than your application. The catch-all must be defined after all of
+your other routes, client ones included, so that every other route has been
+examined (and any matching client route recorded) before it runs. The client
+`notFoundTemplate` is not involved. And since the router joins Meteor's connect
+handlers when startup completes, a connect handler registered after that (after
+an `await` or a callback in a startup function, or at runtime) sits behind the
+catch-all and its urls would be answered with the 404 body too; handlers
+registered at load time or synchronously at startup run before it.
 
 ## Plugins
 Plugins are a way to reuse functionality in your router, either that you've

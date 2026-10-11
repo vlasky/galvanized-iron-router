@@ -871,4 +871,62 @@ if (Meteor.isServer) {
       onComplete();
     });
   });
+
+  // a server route that passes the request on is a matched route, not an
+  // unknown url, so it must not get the status
+  Router.route('/test-not-found-status/passthrough', function () {
+    this.next();
+  }, {where: 'server'});
+
+  Tinytest.addAsync('Router - server - notFoundStatusCode sets the status of the app shell for unknown urls', function (test, onComplete) {
+    // No test route matches /test-not-found-status/..., so these requests fall
+    // through to Meteor. The option is global, so it is set only for the
+    // duration of the test (the test page's own url would get it too).
+    const previous = Router.options.notFoundStatusCode;
+    const finish = function () {
+      Router.configure({notFoundStatusCode: previous === undefined ? null : previous});
+      onComplete();
+    };
+
+    Router.configure({notFoundStatusCode: 404});
+    fetch(Meteor.absoluteUrl('test-not-found-status/missing-page')).then(function (res) {
+      test.equal(res.status, 404, 'an unknown url gets the configured status');
+      test.isTrue(/text\/html/.test(res.headers.get('content-type') || ''), 'the response is the html app shell');
+      return res.text();
+    }).then(function (html) {
+      test.isTrue(/<html/i.test(html), 'the client application is served with the 404');
+      return fetch(Meteor.absoluteUrl('test-404/client-page'));
+    }).then(function (res) {
+      test.equal(res.status, 200, 'a url with a client route is still a 200');
+      return fetch(Meteor.absoluteUrl('test-not-found-status/passthrough'));
+    }).then(function (res) {
+      test.equal(res.status, 200, 'a server route that passed the request on is not an unknown url');
+      Router.configure({notFoundStatusCode: null});
+      return fetch(Meteor.absoluteUrl('test-not-found-status/missing-page'));
+    }).then(function (res) {
+      test.equal(res.status, 200, 'a null option restores the default 200');
+      finish();
+    }).catch(function (err) {
+      test.fail('request failed: ' + err.message);
+      finish();
+    });
+  });
 }
+
+Tinytest.add('Router - configure rejects an invalid notFoundStatusCode', function (test) {
+  const previous = Router.options.notFoundStatusCode;
+  try {
+    [200, '404', 404.5, true, 600].forEach(function (value) {
+      test.throws(function () {
+        Router.configure({notFoundStatusCode: value});
+      }, /notFoundStatusCode/);
+    });
+    test.equal(Router.options.notFoundStatusCode, previous, 'a rejected value is not stored');
+    Router.configure({notFoundStatusCode: 410});
+    test.equal(Router.options.notFoundStatusCode, 410);
+    Router.configure({notFoundStatusCode: null});
+    test.equal(Router.options.notFoundStatusCode, null);
+  } finally {
+    Router.configure({notFoundStatusCode: previous === undefined ? null : previous});
+  }
+});
