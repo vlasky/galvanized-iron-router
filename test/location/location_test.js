@@ -24,6 +24,22 @@ Tinytest.add('Location - urlFromHashStyle', function (test) {
   });
 });
 
+Tinytest.add('Location - hash-style urls under a root url path prefix (upstream #1480)', function (test) {
+  // the application root is the origin plus the prefix; the hash path is the
+  // application pathname below it
+  var base = 'http://host:port/beta/some/pathname/?query=string#bar';
+  var hash = 'http://host:port/beta#!some/pathname/?query=string&__hash__=bar';
+
+  Iron.Url.setRootUrlPathPrefix('/beta');
+  try {
+    test.equal(urlToHashStyle(base), hash);
+    test.equal(urlFromHashStyle(hash), base);
+    test.equal(urlFromHashStyle('http://host:port/beta/#!items/5'), 'http://host:port/beta/items/5');
+  } finally {
+    Iron.Url.setRootUrlPathPrefix(null);
+  }
+});
+
 Tinytest.add('Location - delegates nested link clicks with native events', function (test) {
   var link = document.createElement('a');
   var child = document.createElement('span');

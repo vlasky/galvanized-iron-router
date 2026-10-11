@@ -92,6 +92,7 @@ The `where: 'server'` option tells the Router this is a server side route.
   - [Creating Routes](#creating-routes)
   - [Restful Routes](#restful-routes)
   - [404s and Client vs Server Routes](#404s-and-client-vs-server-routes)
+- [Deploying Under a Path Prefix](#deploying-under-a-path-prefix)
 - [Plugins](#plugins)
   - [Creating Plugins](#creating-plugins)
 - [Hooks](#hooks)
@@ -1049,6 +1050,39 @@ handlers when startup completes, a connect handler registered after that (after
 an `await` or a callback in a startup function, or at runtime) sits behind the
 catch-all and its urls would be answered with the 404 body too; handlers
 registered at load time or synchronously at startup run before it.
+
+## Deploying Under a Path Prefix
+Meteor lets you serve an application below a path on its host by giving
+`ROOT_URL` a path, for example `ROOT_URL=https://example.com/beta`. Meteor
+exposes that path as `ROOT_URL_PATH_PREFIX` and its server strips it from every
+request before the router sees it, so server routes have always been written
+without it. Since 2.5.0 the client does the same:
+
+* Routes are written without the prefix, on both sides: `Router.route('/hello')`
+  answers `https://example.com/beta/hello`.
+* Generated paths include it: `pathFor`, `linkTo`, `Router.path` and
+  `route.path()` give `/beta/hello`, so links work when opened in a new tab or
+  followed by a crawler, and `urlFor`, `Router.url` and `route.url()` give
+  `https://example.com/beta/hello` (the prefix once, not twice).
+* Paths given to `Router.go` and `this.redirect` are application paths: `Router.go('/hello')`
+  navigates to `/beta/hello`. A path already below the prefix (the output of
+  `Router.path`, an `href`, `location.pathname`) is accepted as it is, so an
+  application route whose own first segment is the prefix (`/beta/...` under
+  `/beta`) should be navigated to by name. Route names work as before.
+* A same-origin link outside the prefix, and a `Router.go` to an absolute url
+  on another origin, are left to the browser: they belong to another
+  application, and Meteor answers a url outside the prefix with "Unknown path".
+* `this.url`, `Router.current().url` and `this.params` are those of the
+  application path, as on the server. `Iron.Location.get()`, like
+  `window.location`, is the browser's url and keeps the prefix.
+* In `useHashPaths` mode the application root is `https://example.com/beta/`
+  and the hash path is the application path: `https://example.com/beta#!hello`.
+
+Nothing changes when `ROOT_URL` has no path. An application that worked around
+the old behaviour by writing the prefix into its client routes can keep them
+with `Router.configure({rootUrlPathPrefix: false})`, which turns the handling
+off on the side where it is called; a string value sets a prefix of your own
+instead of the one from `ROOT_URL`, and `null` goes back to it.
 
 ## Plugins
 Plugins are a way to reuse functionality in your router, either that you've

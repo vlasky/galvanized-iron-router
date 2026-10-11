@@ -369,3 +369,65 @@ Tinytest.add('Url - backslash escapes in a pattern reach the regexp as before', 
   test.isFalse(plain.test('/p/a\\b'));
   test.isTrue(plain.test('/p/a%5Cb'));
 });
+
+Tinytest.add('Url - root url path prefix helpers', function (test) {
+  var config = globalThis.__meteor_runtime_config__;
+  var hadConfig = !!config;
+  var previous = hadConfig ? config.ROOT_URL_PATH_PREFIX : undefined;
+
+  try {
+    // an override is normalised: leading slash, no trailing slash
+    Url.setRootUrlPathPrefix('beta/');
+    test.equal(Url.rootUrlPathPrefix(), '/beta');
+    Url.setRootUrlPathPrefix('/');
+    test.equal(Url.rootUrlPathPrefix(), '', 'a bare slash is no prefix');
+    Url.setRootUrlPathPrefix('');
+    test.equal(Url.rootUrlPathPrefix(), '');
+
+    Url.setRootUrlPathPrefix('/beta');
+    test.equal(Url.withRootUrlPathPrefix('/hello?x=1#f'), '/beta/hello?x=1#f');
+    test.equal(Url.withRootUrlPathPrefix('/'), '/beta/');
+    test.equal(Url.withRootUrlPathPrefix('hello'), 'hello', 'a route name is left alone');
+    test.equal(Url.withRootUrlPathPrefix('http://h/x'), 'http://h/x', 'an absolute url is left alone');
+
+    test.equal(Url.withoutRootUrlPathPrefix('http://h:3000/beta/hello?x=1#f'), 'http://h:3000/hello?x=1#f');
+    test.equal(Url.withoutRootUrlPathPrefix('/beta/hello'), '/hello');
+    test.equal(Url.withoutRootUrlPathPrefix('/beta'), '/', 'the prefix alone is the application root');
+    test.equal(Url.withoutRootUrlPathPrefix('/beta/'), '/');
+    test.equal(Url.withoutRootUrlPathPrefix('/beta?x=1'), '/?x=1');
+    test.equal(Url.withoutRootUrlPathPrefix('/beta#!'), '/#!');
+    test.equal(Url.withoutRootUrlPathPrefix('/betamax/hello'), '/betamax/hello', 'a segment merely starting with the prefix is not it');
+    test.equal(Url.withoutRootUrlPathPrefix('/hello'), '/hello', 'a url outside the prefix is left alone');
+
+    test.equal(Url.withRootUrlPathPrefix('/beta/hello'), '/beta/hello', 'a path already below the prefix is left alone');
+    test.equal(Url.withRootUrlPathPrefix('/beta'), '/beta');
+    test.equal(Url.withRootUrlPathPrefix('/betamax'), '/beta/betamax');
+    test.equal(Url.withRootUrlPathPrefix('//other.example/x'), '//other.example/x', 'a protocol-relative url is not an application path');
+
+    test.isTrue(Url.isWithinRootUrlPathPrefix('/beta/hello'));
+    test.isTrue(Url.isWithinRootUrlPathPrefix('/beta'));
+    test.isTrue(Url.isWithinRootUrlPathPrefix('http://h/beta/?x'));
+    test.isFalse(Url.isWithinRootUrlPathPrefix('/hello'));
+    test.isFalse(Url.isWithinRootUrlPathPrefix('/betamax/hello'));
+
+    // without an override the prefix comes from Meteor's runtime config
+    Url.setRootUrlPathPrefix(null);
+    if (!hadConfig)
+      globalThis.__meteor_runtime_config__ = config = {};
+    config.ROOT_URL_PATH_PREFIX = '/rc';
+    test.equal(Url.rootUrlPathPrefix(), '/rc');
+    delete config.ROOT_URL_PATH_PREFIX;
+    test.equal(Url.rootUrlPathPrefix(), '');
+    test.equal(Url.withRootUrlPathPrefix('/hello'), '/hello', 'no prefix, no change');
+    test.equal(Url.withoutRootUrlPathPrefix('/beta/hello'), '/beta/hello');
+    test.isTrue(Url.isWithinRootUrlPathPrefix('/anything'), 'everything is within an empty prefix');
+  } finally {
+    Url.setRootUrlPathPrefix(null);
+    if (!hadConfig)
+      delete globalThis.__meteor_runtime_config__;
+    else if (typeof previous === 'undefined')
+      delete config.ROOT_URL_PATH_PREFIX;
+    else
+      config.ROOT_URL_PATH_PREFIX = previous;
+  }
+});

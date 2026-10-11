@@ -1034,6 +1034,8 @@ Tinytest.add('Router - path and url carry the configured rootUrlPathPrefix (upst
     test.equal(router.path('prefixTest', {id: 1}, {query: {x: 1}}), '/beta/prefix-test/1?x=1', 'paths carry the prefix');
     test.equal(router.url('prefixTest', {id: 1}), origin + '/beta/prefix-test/1', 'urls carry it once');
     test.equal(router.url('prefixTest', {id: 1}, {host: 'https://other.example/'}), 'https://other.example/beta/prefix-test/1');
+    test.equal(router.url('prefixTest', {id: 1}, {host: 'https://other.example/beta/'}), 'https://other.example/beta/prefix-test/1', 'a host given with the prefix does not repeat it');
+    test.equal(router.url('prefixTest', {id: 1}, {host: 'https://other.example/base'}), 'https://other.example/base/beta/prefix-test/1', 'an unrelated base path is kept');
 
     router.configure({rootUrlPathPrefix: false});
     test.equal(router.path('prefixTest', {id: 2}), '/prefix-test/2', 'false opts out of the prefix');
@@ -1060,8 +1062,6 @@ if (Meteor.isClient) {
     history.replaceState = function () {};
 
     router.route('/prefix-nav/:id', function () {
-      // this.url is the url the router dispatched (absolute on start,
-      // relative after go(); only its pathname matters here)
       seen.push({id: this.params.id, pathname: Iron.Url.parse(this.url).pathname});
     }, {name: 'prefixNav'});
     // matches the test page's own url so start() does not hand off to the server
@@ -1070,25 +1070,41 @@ if (Meteor.isClient) {
 
     try {
       router.configure({rootUrlPathPrefix: '/beta'});
+      // the test page itself sits outside /beta: such a url is not routed
+      // but left to the browser (Meteor would answer it with "Unknown path")
       router.start();
       Tracker.flush();
+      test.equal(seen[0], {server: location.pathname + location.search + location.hash}, 'a browser url outside the prefix goes to the server');
 
       router.go('/prefix-nav/1');
       Tracker.flush();
-      test.equal(seen[0], {id: '1', pathname: '/prefix-nav/1'}, 'an application path given to go() is routed without the prefix');
+      test.equal(seen[1], {id: '1', pathname: '/prefix-nav/1'}, 'an application path given to go() is routed without the prefix');
       test.equal(Iron.Location.get().path, '/beta/prefix-nav/1', 'the browser location carries the prefix');
       test.equal(pushed, ['/beta/prefix-nav/1'], 'the pushed url carries the prefix');
 
       router.go('prefixNav', {id: 2});
       Tracker.flush();
-      test.equal(seen[1], {id: '2', pathname: '/prefix-nav/2'}, 'a route name is routed the same way');
+      test.equal(seen[2], {id: '2', pathname: '/prefix-nav/2'}, 'a route name is routed the same way');
       test.equal(Iron.Location.get().path, '/beta/prefix-nav/2');
 
       // a browser url (a link click) arrives with the prefix already on it
       Iron.Location.go('/beta/prefix-nav/3');
       Tracker.flush();
-      test.equal(seen[2], {id: '3', pathname: '/prefix-nav/3'}, 'a prefixed browser url is routed without the prefix');
-      test.equal(seen.length, 3, 'nothing went to the server');
+      test.equal(seen[3], {id: '3', pathname: '/prefix-nav/3'}, 'a prefixed browser url is routed without the prefix');
+
+      // Router.path() output is a browser path and is accepted as such
+      router.go(router.path('prefixNav', {id: 4}));
+      Tracker.flush();
+      test.equal(seen[4], {id: '4', pathname: '/prefix-nav/4'}, 'go() with a prefixed path does not double the prefix');
+
+      // a path outside the prefix and an absolute url elsewhere are not routed
+      Iron.Location.go('/prefix-nav/5');
+      Tracker.flush();
+      test.equal(seen[5], {server: '/prefix-nav/5'}, 'a browser path outside the prefix goes to the server');
+      router.go('https://other.example/beta/prefix-nav/6');
+      Tracker.flush();
+      test.equal(seen[6], {server: 'https://other.example/beta/prefix-nav/6'}, 'an absolute url on another origin is left to the browser whole');
+      test.equal(seen.length, 7);
     } finally {
       router.stop();
       router.configure({rootUrlPathPrefix: null});
