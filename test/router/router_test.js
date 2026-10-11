@@ -1151,6 +1151,15 @@ if (Meteor.isServer) {
   // no function, no action option, no REST handlers: a request used to hang
   Router.route('/test-no-action', {where: 'server', name: 'testNoAction'});
 
+  // the same with an async before hook: the route's frame has already been
+  // marked handled when the default action runs, which must not turn the
+  // hand-off into the "no client routes" notice
+  Router.route('/test-no-action-async', {where: 'server', name: 'testNoActionAsync'});
+  Router.onBeforeAction(async function () {
+    await new Promise(function (resolve) { setTimeout(resolve, 5); });
+    this.next();
+  }, {only: ['testNoActionAsync']});
+
   Tinytest.addAsync('Router - server - a route with no action passes the request on with a warning', function (test, onComplete) {
     var warnings = [];
     var originalWarn = console.warn;
@@ -1162,6 +1171,12 @@ if (Meteor.isServer) {
     }).then(function (body) {
       test.isTrue(/<html/i.test(body), 'the request was handed on to Meteor, which served the client application');
       test.isTrue(warnings.some(function (w) { return /"testNoAction" has no action/.test(w); }), 'a development warning names the route');
+      return fetch(Meteor.absoluteUrl('test-no-action-async'));
+    }).then(function (res) {
+      test.equal(res.status, 200);
+      return res.text();
+    }).then(function (body) {
+      test.isTrue(/<html/i.test(body), 'handed on to Meteor after an async before hook too');
       console.warn = originalWarn;
       onComplete();
     }).catch(function (err) {
