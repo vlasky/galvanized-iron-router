@@ -259,3 +259,18 @@ Tinytest.add('Url - params always provides query and hash', function (test) {
   test.equal(path.params('/items/1#frag?x=1').hash, 'frag?x=1', 'a ? inside the fragment belongs to the fragment');
   test.equal(path.params('/items/1#frag?x=1').query, {}, 'and is not read as a query string');
 });
+
+Tinytest.add('Url - toQueryString: undefined is a bare key, null is omitted', function (test) {
+  // used to serialise the strings "undefined" and "null" (upstream #1277)
+  test.equal(Url.toQueryString({a: undefined, b: null, c: 1, d: ''}), '?a&c=1&d=');
+  test.equal(Url.toQueryString({a: [undefined, 'x', null]}), '?a[]=x');
+  test.equal(Url.toQueryString({a: null}), '');
+
+  // a parsed query string round-trips, bare flags included
+  test.equal(Url.toQueryString(Url.fromQueryString('?flag&a=1')), '?flag&a=1');
+  test.isUndefined(Url.fromQueryString(Url.toQueryString({flag: undefined})).flag);
+
+  var path = new Url('/posts');
+  test.equal(path.resolve({}, {query: {foo: undefined, bar: 1}}), '/posts?foo&bar=1');
+  test.equal(path.resolve({}, {query: {foo: null, bar: 1}}), '/posts?bar=1');
+});
