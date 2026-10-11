@@ -360,6 +360,45 @@ if (Meteor.isClient) {
     }
   });
 
+  Tinytest.add('Router - the dispatched url is relative however the location was reached (upstream #1152)', function (test) {
+    var router = new Iron.Router({autoRender: false, autoStart: false});
+    var urls = [];
+    var originalHref = location.href;
+    var ownPush = Object.getOwnPropertyDescriptor(history, 'pushState');
+    var ownReplace = Object.getOwnPropertyDescriptor(history, 'replaceState');
+
+    history.pushState = function () {};
+    history.replaceState = function () {};
+
+    // matches the test page's url and anything else we go to
+    router.route('/(.*)', function () {
+      urls.push(this.url);
+    });
+
+    try {
+      // the initial location comes from location.href, which is absolute
+      router.start();
+      Tracker.flush();
+      test.equal(urls[0], location.pathname + location.search + location.hash, 'the initial url is relative');
+
+      router.go('/relative-url-test/1?x=1#frag');
+      Tracker.flush();
+      test.equal(urls[1], '/relative-url-test/1?x=1#frag', 'a url given to go() is dispatched as is');
+
+      // a popstate builds the state from the absolute location.href too
+      Iron.Location.go(location.origin + '/relative-url-test/2?y=2');
+      Tracker.flush();
+      test.equal(urls[2], '/relative-url-test/2?y=2', 'an absolute url is dispatched relative');
+      test.equal(router.current().url, '/relative-url-test/2?y=2');
+    } finally {
+      router.stop();
+      Iron.Location.go(originalHref, {replaceState: true, historyState: history.state});
+      Tracker.flush();
+      if (ownPush) Object.defineProperty(history, 'pushState', ownPush); else delete history.pushState;
+      if (ownReplace) Object.defineProperty(history, 'replaceState', ownReplace); else delete history.replaceState;
+    }
+  });
+
   Tinytest.add('Router - start after stop runs the current route again', function (test) {
     // start()'s autorun saw a (stopped) current controller and no previous
     // location, so it only reconfigured it: the route stayed stopped and
