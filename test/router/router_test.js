@@ -548,6 +548,29 @@ if (Meteor.isServer) {
   // polyfills it on Meteor 2 (and re-exports the native one on Meteor 3).
   var fetch = require('meteor/fetch').fetch;
 
+  Tinytest.addAsync('Router - server - wrapCallbackMiddleware reports a deferred callback as a pending promise', function (test, onComplete) {
+    var wrap = Iron.Router.wrapCallbackMiddleware;
+    test.equal(typeof wrap, 'function');
+
+    var calls = 0;
+    var sync = wrap(function (req, res, next) { next(); });
+    test.isUndefined(sync({}, {}, function () { calls++; }), 'a synchronous callback keeps the synchronous path');
+    test.equal(calls, 1);
+
+    var deferredCalls = 0;
+    var deferred = wrap(function (req, res, next) { setTimeout(next, 0); });
+    var result = deferred({}, {}, function () { deferredCalls++; });
+    test.isTrue(result && typeof result.then === 'function', 'a deferred callback becomes a promise');
+    test.equal(deferredCalls, 0, 'the continuation has not run yet');
+    result.then(function () {
+      test.equal(deferredCalls, 1, 'the promise settles after the continuation ran');
+      onComplete();
+    }, function (err) {
+      test.fail('the promise rejected: ' + err);
+      onComplete();
+    });
+  });
+
   Tinytest.add('Router - server - configureBodyParsers registers global before hooks', function (test) {
     var router = new Iron.Router({autoStart: false, autoRender: false});
     var before = router.getHooks('onBeforeAction', 'anyRoute').length;

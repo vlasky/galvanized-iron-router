@@ -205,6 +205,37 @@ interface RouterOptions extends RouteOptions {
   notFoundTemplate?: string;
   noRoutesTemplate?: string;
   loadingTemplate?: string;
+  /**
+   * Server: status sent with the client application for a url that matches
+   * no server route and no client route the server knows about (400-599);
+   * null for the default 200.
+   */
+  notFoundStatusCode?: number | null;
+  /**
+   * Override Meteor's ROOT_URL_PATH_PREFIX: a string sets a prefix, false
+   * turns the handling off, null goes back to ROOT_URL.
+   */
+  rootUrlPathPrefix?: string | false | null;
+}
+
+/** Options for generating a path or url from a route */
+interface PathOptions {
+  query?: QueryParams;
+  hash?: string;
+}
+
+interface UrlOptions extends PathOptions {
+  /** The origin (or base url) to build on instead of ROOT_URL's origin */
+  host?: string;
+}
+
+/** Connect-style middleware for Router.use; `this` is the controller */
+type ConnectMiddleware = (this: RouteController, req: Express.Request, res: Express.Response, next: (err?: any) => void) => any;
+type ConnectErrorMiddleware = (this: RouteController, err: any, req: Express.Request, res: Express.Response, next: (err?: any) => void) => any;
+
+interface UseOptions {
+  where?: 'client' | 'server';
+  name?: string;
 }
 
 // Route class
@@ -214,11 +245,11 @@ declare class Route {
   /** Get the route name */
   getName(): string;
 
-  /** Get the path with parameters substituted */
-  path(params?: RouteParams, options?: { query?: QueryParams; hash?: string }): string;
+  /** Get the path with parameters substituted (includes the ROOT_URL path prefix) */
+  path(params?: RouteParams, options?: PathOptions): string;
 
   /** Get the full URL with parameters substituted */
-  url(params?: RouteParams, options?: { query?: QueryParams; hash?: string }): string;
+  url(params?: RouteParams, options?: UrlOptions): string;
 
   /** Extract parameters from a path */
   params(path: string): ControllerParams;
@@ -610,6 +641,17 @@ declare class Url {
   static parse(url: string): ParsedUrl;
   static fromQueryString(query: string): QueryParams;
   static toQueryString(queryObject: QueryParams | string | null): string;
+
+  /** The ROOT_URL path prefix ("/beta" for ROOT_URL=https://h/beta, "" when none) */
+  static rootUrlPathPrefix(): string;
+  /** Override the prefix (a string), or null to read Meteor's runtime config again */
+  static setRootUrlPathPrefix(prefix: string | null | undefined): void;
+  /** Prepend the prefix to an application path; other strings are returned unchanged */
+  static withRootUrlPathPrefix(path: string): string;
+  /** Remove the prefix from a browser url or path; a url outside it is returned unchanged */
+  static withoutRootUrlPathPrefix(url: string): string;
+  /** Is this browser url or path at or below the prefix (always true without one)? */
+  static isWithinRootUrlPathPrefix(url: string): boolean;
 }
 
 // Client-side Location state
@@ -778,11 +820,26 @@ interface Router {
    */
   findRouteByName(name: string): Route | undefined;
 
-  /** Get the path for a named route */
-  path(routeName: string, params?: RouteParams, options?: { query?: QueryParams; hash?: string }): string | null;
+  /** Get the path for a named route (includes the ROOT_URL path prefix) */
+  path(routeName: string, params?: RouteParams, options?: PathOptions): string | null;
 
   /** Get the full URL for a named route */
-  url(routeName: string, params?: RouteParams, options?: { query?: QueryParams; hash?: string }): string | null;
+  url(routeName: string, params?: RouteParams, options?: UrlOptions): string | null;
+
+  /**
+   * Add connect-style middleware to the router's stack, server side by
+   * default. A pathless fn runs for every request the router sees, a mounted
+   * one for every url below path; a four-argument fn is an error handler for
+   * the routes registered before it.
+   */
+  use(fn: ConnectMiddleware | ConnectErrorMiddleware, options?: UseOptions): Router;
+  use(path: string, fn: ConnectMiddleware | ConnectErrorMiddleware, options?: UseOptions): Router;
+
+  /**
+   * Client: leave the page for a url the client has no route for. Overridable
+   * for applications that need to navigate differently.
+   */
+  _goToServer(url: string, replace: boolean): void;
 
   /** Create a controller for a URL */
   createController(url: string, context?: object): RouteController;
@@ -881,6 +938,12 @@ interface RouterConstructor {
   };
   /** Body parser factory (server): json/urlencoded/text middleware creators */
   bodyParser: any;
+  /**
+   * Server: make a callback-style connect middleware (a body parser) report a
+   * deferred callback as a pending promise, so the router's after hooks wait
+   * for it. Use it around parsers in a configureBodyParsers override.
+   */
+  wrapCallbackMiddleware(middleware: (req: Express.Request, res: Express.Response, next: (err?: any) => void) => void): ConnectMiddleware;
 }
 
 type RouterGlobal = Router;

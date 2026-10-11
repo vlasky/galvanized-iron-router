@@ -75,6 +75,7 @@ The `where: 'server'` option tells the Router this is a server side route.
   - [Using Redirects](#using-redirects)
   - [Using Links to Server Routes](#using-links-to-server-routes)
 - [Named Routes](#named-routes)
+  - [Generating Paths and Urls in JavaScript](#generating-paths-and-urls-in-javascript)
   - [Getting the Current Route](#getting-the-current-route)
 - [Template Lookup](#template-lookup)
 - [Path and Link Template Helpers](#path-and-link-template-helpers)
@@ -361,6 +362,15 @@ Router.route('/post/:_id', function () {
 });
 ```
 
+A layout can ask whether a region currently has content with the `hasRegion`
+helper, for example to leave out the markup around an empty region:
+
+```handlebars
+{{#if hasRegion 'aside'}}
+  <aside>{{> yield "aside"}}</aside>
+{{/if}}
+```
+
 ### Setting Region Data Contexts
 You can set the data contexts for regions by providing a `data` option to the
 `render` method. You can also set a data context for the entire layout.
@@ -629,6 +639,22 @@ The above JavaScript will navigate to this url:
 ```handlebars
 /post/1?q=s#hashFrag
 ```
+
+### Generating Paths and Urls in JavaScript
+The `pathFor` and `urlFor` template helpers (below) have JavaScript
+counterparts, with the same parameters and options as `Router.go`:
+
+```javascript
+Router.path('post.show', {_id: 1});                       // "/post/1"
+Router.path('post.show', {_id: 1}, {query: {q: 's'}, hash: 'frag'}); // "/post/1?q=s#frag"
+Router.url('post.show', {_id: 1});                        // "https://example.com/post/1"
+Router.url('post.show', {_id: 1}, {host: 'https://other.example'});
+```
+
+`Router.url` builds on the origin of `ROOT_URL` unless a `host` option is given.
+Both also exist on the route object (`Router.findRouteByName('post.show').path(params, options)`),
+and both work on the server, for example when building links for an email.
+
 ### Getting the Current Route
 
 You can access the current route's name through the current controller with:
@@ -925,6 +951,16 @@ Router.route('/post/:_id', {
     this.render('myTemplate');
   }
 });
+```
+
+To use one loading template for every route that has a `waitOn`, set it on the
+router, either as a default option or through the built-in `loading` plugin,
+which also takes the `only` and `except` options described under Plugins:
+
+```javascript
+Router.configure({loadingTemplate: 'loading'});
+// or
+Router.plugin('loading', {loadingTemplate: 'loading', except: ['home']});
 ```
 
 ## Server Routing
@@ -1239,7 +1275,23 @@ Router.onBeforeAction(function(req, res, next) {
 
 This means you can attach any connect middleware you like on the server side using `Router.onBeforeAction()`. For convenience, GIR makes express' [body-parser](https://github.com/expressjs/body-parser) available at `Iron.Router.bodyParser`.
 
-The Router attaches the JSON body parser automatically.
+The Router attaches the `json` and `urlencoded` body parsers automatically, with
+body-parser's defaults (a 100kb limit). To change the limits, or to add the
+`raw` or `text` parsers, override `configureBodyParsers` on the server before
+startup. Wrap each parser in `Iron.Router.wrapCallbackMiddleware`: body parsers
+call back asynchronously when a body has to be streamed in, and without the
+wrapper the router cannot tell that the parser is still running, so
+`onAfterAction` could run before the action and `this.request.body` would be
+empty:
+
+```javascript
+Router.configureBodyParsers = function () {
+  const wrap = Iron.Router.wrapCallbackMiddleware;
+  this.onBeforeAction(wrap(Iron.Router.bodyParser.json({limit: '1mb'})));
+  this.onBeforeAction(wrap(Iron.Router.bodyParser.urlencoded({extended: false, limit: '1mb'})));
+  this.onBeforeAction(wrap(Iron.Router.bodyParser.text()));
+};
+```
 
 ### Middleware and Error Handlers with Router.use
 
