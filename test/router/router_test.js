@@ -1124,6 +1124,12 @@ Tinytest.add('Router - a client route and a server route may share a path (upstr
   test.equal(router.findRouteByName('sharedClient').handler.where, 'client');
   test.equal(router.findRouteByName('sharedServer').handler.where, 'server');
 
+  // without explicit names both routes derive the same name from the path
+  test.throws(function () {
+    router.route('/shared-default', function () {});
+    router.route('/shared-default', function () {}, {where: 'server'});
+  }, /Handler with name 'shared-default' already exists/);
+
   test.throws(function () {
     router.route('/shared-path', function () {}, {name: 'sharedClientAgain'});
   }, /client route for the path "\/shared-path" already exists by the name of "sharedClient"/);

@@ -1023,6 +1023,10 @@ if it sets its own status with `writeHead` or `statusCode`; one that only calls
 `res.end()` would send the 404. Static files from `public/` and the client bundle are served
 by Meteor before the router sees the request, so they never get the status.
 
+A server route may share its path with a client route (to redirect or answer a
+client url server-side, say); give the two routes different names, since the
+name a route derives from its path would be the same for both.
+
 If you would rather answer unknown urls with a plain 404 body of your own,
 without serving the client application, define a server catch-all route after
 all of your other routes. The router records, for each request, whether a client
