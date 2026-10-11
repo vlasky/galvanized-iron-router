@@ -99,6 +99,8 @@ The `where: 'server'` option tells the Router this is a server side route.
   - [Applying Hooks to Specific Routes](#applying-hooks-to-specific-routes)
   - [Using the Iron.Router.hooks Namespace](#using-the-ironrouterhooks-namespace)
   - [Available Hook Methods](#available-hook-methods)
+  - [Server Hooks and Connect](#server-hooks-and-connect)
+  - [Middleware and Error Handlers with Router.use](#middleware-and-error-handlers-with-routeruse)
 - [Route Controllers](#route-controllers)
   - [Creating Route Controllers](#creating-route-controllers)
   - [Using the Controller Registry (ES6 Modules)](#using-the-controller-registry-es6-modules)
@@ -1185,6 +1187,58 @@ Router.onBeforeAction(function(req, res, next) {
 This means you can attach any connect middleware you like on the server side using `Router.onBeforeAction()`. For convenience, GIR makes express' [body-parser](https://github.com/expressjs/body-parser) available at `Iron.Router.bodyParser`.
 
 The Router attaches the JSON body parser automatically.
+
+### Middleware and Error Handlers with Router.use
+
+Hooks run inside a route, so they only see requests that matched one. To run
+connect middleware for every request that reaches the router, or for every url
+below a mount point, use `Router.use` (server side by default):
+
+```javascript
+// every request the router sees
+Router.use(function (req, res, next) {
+  res.setHeader('X-Powered-By', 'Meteor');
+  next();
+});
+
+// everything below /admin: req.url is relative to the mount point
+Router.use('/admin', function (req, res, next) {
+  res.end('admin: ' + req.url);
+});
+```
+
+Middleware runs in the order it was registered relative to your routes, like a
+connect stack, and `this` is the controller, as in a hook. A middleware given
+without a path does not count as a server route when the client decides whether
+a url must be fetched from the server, and when it calls `next()` the request is
+still handed on to Meteor if no route matches. A middleware mounted at a path
+counts as a server handler for the urls below it, so links to them go to the
+server.
+
+A function with four arguments is an error handler. It runs only when a handler
+before it threw, rejected or called `next(err)`, and it must come after the
+routes it covers; an error nobody handles gets the router's default response (a
+500, or `err.status` if set, with the stack trace in development):
+
+```javascript
+Router.route('/api/items/:id', function () {
+  const item = Items.findOne(this.params.id);
+  if (!item)
+    throw Object.assign(new Error('No such item'), {status: 404});
+  this.response.end(JSON.stringify(item));
+}, {where: 'server'});
+
+// after the routes
+Router.use(function (err, req, res, next) {
+  res.statusCode = err.status || 500;
+  res.setHeader('Content-Type', 'application/json');
+  res.end(JSON.stringify({error: err.message}));
+});
+```
+
+`Router.use(fn, {where: 'client'})` adds middleware to the client stack too,
+where `req` and `res` are empty objects and `this.next()` continues the
+dispatch.
 
 ## Route Controllers
 An `Iron.RouteController` object is created when the Router handles a url

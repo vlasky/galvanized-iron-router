@@ -427,14 +427,6 @@ if (Meteor.isClient) {
   });
 }
 
-Tinytest.add('Router - dispatch - error handling', function (test) {
-  // TODO?
-});
-
-Tinytest.add('Router - dispatch - notFound and unhandled', function (test) {
-  // TODO?
-});
-
 if (Meteor.isClient) {
   // See https://github.com/EventedMind/iron-router/issues/869
   // XXX this test should be fixed so that it produces the same outcome. right now it only passes on the first one
@@ -912,6 +904,233 @@ if (Meteor.isServer) {
     });
   });
 }
+
+if (Meteor.isServer) {
+  // Router.use: a pathless middleware runs for every server request (scoped
+  // here to /test-use/ urls by hand), and a four-argument one is an error
+  // handler for the routes registered before it (upstream PR #1477).
+  Router.use(function (req, res, next) {
+    if (req.originalUrl.indexOf('/test-use/') === 0)
+      res.setHeader('X-Test-Use', 'middleware');
+    next();
+  });
+
+  Router.route('/test-use/throws', function () {
+    throw new Error('route failure');
+  }, {where: 'server'});
+
+  Router.route('/test-use/async-rejects', async function () {
+    await Promise.resolve();
+    throw new Error('async route failure');
+  }, {where: 'server'});
+
+  Router.use('/test-use/mounted', function (req, res, next) {
+    res.setHeader('Content-Type', 'application/json');
+    res.end(JSON.stringify({mounted: req.url, original: req.originalUrl}));
+  });
+
+  Router.use(function (err, req, res, next) {
+    // other tests expect the router's own 500 handling for their errors
+    if (req.originalUrl.indexOf('/test-use/') !== 0)
+      return next(err);
+    res.statusCode = 422;
+    res.setHeader('Content-Type', 'application/json');
+    res.end(JSON.stringify({error: err.message}));
+  });
+
+  Tinytest.addAsync('Router - server - Router.use registers middleware and error handlers (upstream #1477)', function (test, onComplete) {
+    fetch(Meteor.absoluteUrl('test-use/throws')).then(function (res) {
+      test.equal(res.status, 422, 'the error handler answered a throwing route');
+      test.equal(res.headers.get('x-test-use'), 'middleware', 'the pathless middleware ran first');
+      return res.json();
+    }).then(function (body) {
+      test.equal(body, {error: 'route failure'});
+      return fetch(Meteor.absoluteUrl('test-use/async-rejects'));
+    }).then(function (res) {
+      test.equal(res.status, 422, 'the error handler answered a rejecting async route');
+      return res.json();
+    }).then(function (body) {
+      test.equal(body, {error: 'async route failure'});
+      return fetch(Meteor.absoluteUrl('test-use/mounted/users?x=1'));
+    }).then(function (res) {
+      test.equal(res.status, 200);
+      return res.json();
+    }).then(function (body) {
+      test.equal(body, {mounted: '/users?x=1', original: '/test-use/mounted/users?x=1'}, 'a mounted middleware sees the url below its mount point');
+      // the pathless middleware ran for this unknown url too and called
+      // next(); the request must still be handed on to Meteor
+      return fetch(Meteor.absoluteUrl('test-use-unknown/page'));
+    }).then(function (res) {
+      test.equal(res.status, 200, 'an unknown url is still served by Meteor');
+      return res.text();
+    }).then(function (html) {
+      test.isTrue(/<html/i.test(html), 'the client application was served');
+      // errors outside the handler's scope keep the router's 500 handling
+      return fetch(Meteor.absoluteUrl('test-async-error'));
+    }).then(function (res) {
+      test.equal(res.status, 500, 'an error passed on with next(err) reaches the default handling');
+      onComplete();
+    }).catch(function (err) {
+      test.fail('request failed: ' + err.message);
+      onComplete();
+    });
+  });
+}
+
+Tinytest.add('Router - path and url carry the configured rootUrlPathPrefix (upstream #800)', function (test) {
+  var router = new Iron.Router({autoRender: false, autoStart: false});
+  var origin = Meteor.absoluteUrl().replace(/^([a-z]+:\/\/[^/]+).*$/i, '$1');
+
+  router.route('/prefix-test/:id', {name: 'prefixTest'});
+
+  try {
+    test.equal(router.path('prefixTest', {id: 1}), '/prefix-test/1', 'no prefix by default');
+    test.equal(router.url('prefixTest', {id: 1}), origin + '/prefix-test/1');
+
+    router.configure({rootUrlPathPrefix: '/beta'});
+    test.equal(router.path('prefixTest', {id: 1}, {query: {x: 1}}), '/beta/prefix-test/1?x=1', 'paths carry the prefix');
+    test.equal(router.url('prefixTest', {id: 1}), origin + '/beta/prefix-test/1', 'urls carry it once');
+    test.equal(router.url('prefixTest', {id: 1}, {host: 'https://other.example/'}), 'https://other.example/beta/prefix-test/1');
+
+    router.configure({rootUrlPathPrefix: false});
+    test.equal(router.path('prefixTest', {id: 2}), '/prefix-test/2', 'false opts out of the prefix');
+
+    test.throws(function () {
+      router.configure({rootUrlPathPrefix: 42});
+    }, /rootUrlPathPrefix/);
+  } finally {
+    router.configure({rootUrlPathPrefix: null});
+  }
+});
+
+if (Meteor.isClient) {
+  Tinytest.add('Router - navigation under a rootUrlPathPrefix matches application routes (upstream #800)', function (test) {
+    var router = new Iron.Router({autoRender: false, autoStart: false});
+    var seen = [];
+    var originalHref = location.href;
+    var ownPush = Object.getOwnPropertyDescriptor(history, 'pushState');
+    var ownReplace = Object.getOwnPropertyDescriptor(history, 'replaceState');
+    var pushed = [];
+
+    // nothing is written to the real history
+    history.pushState = function (state, title, url) { pushed.push(url); };
+    history.replaceState = function () {};
+
+    router.route('/prefix-nav/:id', function () {
+      // this.url is the url the router dispatched (absolute on start,
+      // relative after go(); only its pathname matters here)
+      seen.push({id: this.params.id, pathname: Iron.Url.parse(this.url).pathname});
+    }, {name: 'prefixNav'});
+    // matches the test page's own url so start() does not hand off to the server
+    router.route('/(.*)', function () {});
+    router._goToServer = function (url) { seen.push({server: url}); };
+
+    try {
+      router.configure({rootUrlPathPrefix: '/beta'});
+      router.start();
+      Tracker.flush();
+
+      router.go('/prefix-nav/1');
+      Tracker.flush();
+      test.equal(seen[0], {id: '1', pathname: '/prefix-nav/1'}, 'an application path given to go() is routed without the prefix');
+      test.equal(Iron.Location.get().path, '/beta/prefix-nav/1', 'the browser location carries the prefix');
+      test.equal(pushed, ['/beta/prefix-nav/1'], 'the pushed url carries the prefix');
+
+      router.go('prefixNav', {id: 2});
+      Tracker.flush();
+      test.equal(seen[1], {id: '2', pathname: '/prefix-nav/2'}, 'a route name is routed the same way');
+      test.equal(Iron.Location.get().path, '/beta/prefix-nav/2');
+
+      // a browser url (a link click) arrives with the prefix already on it
+      Iron.Location.go('/beta/prefix-nav/3');
+      Tracker.flush();
+      test.equal(seen[2], {id: '3', pathname: '/prefix-nav/3'}, 'a prefixed browser url is routed without the prefix');
+      test.equal(seen.length, 3, 'nothing went to the server');
+    } finally {
+      router.stop();
+      router.configure({rootUrlPathPrefix: null});
+      Iron.Location.go(originalHref, {replaceState: true, historyState: history.state});
+      Tracker.flush();
+      if (ownPush) Object.defineProperty(history, 'pushState', ownPush); else delete history.pushState;
+      if (ownReplace) Object.defineProperty(history, 'replaceState', ownReplace); else delete history.replaceState;
+    }
+  });
+}
+
+Tinytest.add('Router - a client route and a server route may share a path (upstream #1091)', function (test) {
+  var router = new Iron.Router({autoRender: false, autoStart: false});
+
+  router.route('/shared-path', function () {}, {name: 'sharedClient'});
+  router.route('/shared-path', function () {}, {name: 'sharedServer', where: 'server'});
+  test.equal(router.findRouteByName('sharedClient').handler.where, 'client');
+  test.equal(router.findRouteByName('sharedServer').handler.where, 'server');
+
+  test.throws(function () {
+    router.route('/shared-path', function () {}, {name: 'sharedClientAgain'});
+  }, /client route for the path "\/shared-path" already exists by the name of "sharedClient"/);
+  test.throws(function () {
+    router.route('/shared-path', function () {}, {name: 'sharedServerAgain', where: 'server'});
+  }, /server route for the path "\/shared-path" already exists by the name of "sharedServer"/);
+});
+
+Tinytest.add('Router - route rejects the options object before the function', function (test) {
+  var router = new Iron.Router({autoRender: false, autoStart: false});
+
+  test.throws(function () {
+    router.route('/wrong-order', {name: 'wrongOrder'}, function () {});
+  }, /route function must come before the options object/);
+  test.isUndefined(router.findRouteByName('wrongOrder'), 'no route was defined');
+});
+
+if (Meteor.isServer) {
+  // no function, no action option, no REST handlers: a request used to hang
+  Router.route('/test-no-action', {where: 'server', name: 'testNoAction'});
+
+  Tinytest.addAsync('Router - server - a route with no action passes the request on with a warning', function (test, onComplete) {
+    var warnings = [];
+    var originalWarn = console.warn;
+    console.warn = function (message) { warnings.push(String(message)); };
+
+    fetch(Meteor.absoluteUrl('test-no-action')).then(function (res) {
+      test.equal(res.status, 200, 'the request was answered');
+      return res.text();
+    }).then(function (body) {
+      test.isTrue(/<html/i.test(body), 'the request was handed on to Meteor, which served the client application');
+      test.isTrue(warnings.some(function (w) { return /"testNoAction" has no action/.test(w); }), 'a development warning names the route');
+      console.warn = originalWarn;
+      onComplete();
+    }).catch(function (err) {
+      console.warn = originalWarn;
+      test.fail('request failed: ' + err.message);
+      onComplete();
+    });
+  });
+}
+
+if (Meteor.isClient) {
+  Tinytest.add('Router - use with where client runs middleware in the client dispatch', function (test) {
+    var router = new Iron.Router({autoRender: false, autoStart: false});
+    var seen = [];
+
+    router.use(function (req, res, next) {
+      seen.push(this.url);
+      this.next();
+    }, {where: 'client'});
+    router.route('/client-use/:id', function () {
+      seen.push('route ' + this.params.id);
+    });
+
+    var controller = router.dispatch('/client-use/7', {});
+    Tracker.flush();
+    test.equal(seen, ['/client-use/7', 'route 7']);
+    controller.stop();
+  });
+}
+
+Tinytest.add('Router - use requires a function', function (test) {
+  test.throws(function () { Router.use('/x'); }, /function/);
+  test.throws(function () { Router.use(42, function () {}); }, /path/);
+});
 
 Tinytest.add('Router - configure rejects an invalid notFoundStatusCode', function (test) {
   const previous = Router.options.notFoundStatusCode;

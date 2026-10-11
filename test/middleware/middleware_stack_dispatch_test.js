@@ -228,3 +228,81 @@ Tinytest.add('MiddlewareStack - append with options', function (test) {
 
 //TODO concat
 //TODO append
+
+Tinytest.add('MiddlewareStack - a pass-through middleware does not mark the request handled', function (test) {
+  const where = Meteor.isClient ? 'client' : 'server';
+  const stack = new Iron.MiddlewareStack;
+  const dispatch = function (url) {
+    return stack.dispatch(url, {}, function () {});
+  };
+
+  // pathless middleware (Router.use(fn)) that passes every request on
+  stack.push(function logger (req, res, next) {
+    next();
+  }, {where: where});
+
+  let context = dispatch('/unknown');
+  test.isFalse(context.isHandled(), 'a middleware that called next() has not handled the request');
+  test.isFalse(context.willBeHandledOnClient());
+  test.isFalse(context.willBeHandledOnServer());
+
+  // a mounted middleware counts as a handler for its environment (that is
+  // what sends the client to the server for its urls) but passing the
+  // request on does not mark it handled either
+  stack.push('/admin', function admin (req, res, next) {
+    next();
+  }, {where: where, mount: true});
+
+  context = dispatch('/admin/users');
+  test.isFalse(context.isHandled(), 'a mounted middleware that called next() has not handled the request');
+  test.isTrue(context['willBeHandledOn' + (Meteor.isClient ? 'Client' : 'Server')]());
+
+  // a route (not mounted) marks the request handled even when it passes it on
+  stack.push('/items/:id', function item (req, res, next) {
+    next();
+  }, {where: where});
+
+  context = dispatch('/items/1');
+  test.isTrue(context.isHandled(), 'a route marks the request handled');
+
+  // a middleware that ends the chain synchronously does not mark it either:
+  // the stack cannot tell it from one that will call next() later from a
+  // callback, and handled means a route ran
+  stack.push(function terminal (req, res, next) {
+    // does not call next
+  }, {where: where});
+
+  context = dispatch('/unknown');
+  test.isFalse(context.isHandled(), 'a middleware that ended the chain does not mark the request handled');
+});
+
+Tinytest.addAsync('MiddlewareStack - deferred and async pass-through middleware do not mark the request handled', function (test, onComplete) {
+  const where = Meteor.isClient ? 'client' : 'server';
+  const stack = new Iron.MiddlewareStack;
+
+  // connect middleware commonly calls next() from a later callback, pathless
+  // or mounted
+  stack.push(function deferred (req, res, next) {
+    setTimeout(next, 0);
+  }, {where: where});
+  stack.push('/', function mountedDeferred (req, res, next) {
+    setTimeout(next, 0);
+  }, {where: where, mount: true});
+
+  // an error handler is skipped when there is no error and must not count
+  stack.push(function errors (err, req, res, next) {
+    next(err);
+  }, {where: where});
+
+  stack.push(function asyncLogger (req, res, next) {
+    return Promise.resolve().then(function () { next(); });
+  }, {where: where});
+
+  // read it where the router does: in the completion callback
+  stack.dispatch('/unknown', {}, function () {
+    test.isFalse(this.isHandled(), 'middleware that passed the request on, at once or later, has not handled it');
+    // the mounted one still counts as a handler for its environment
+    test.isTrue(this['willBeHandledOn' + (Meteor.isClient ? 'Client' : 'Server')]());
+    onComplete();
+  });
+});

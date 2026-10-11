@@ -438,6 +438,7 @@ Tinytest.add('MiddlewareStack - a parameterised mount path strips what it matche
 
   stack.dispatch('/api/123456/items?token=abc', {});
 
-  test.equal(seen[0], {url: '/items', reqUrl: '/items', id: '123456'});
-  test.equal(seen[1], {url: '/api/123456/items'});
+  // the query string stays on the stripped url, as in connect (since 2.5.0)
+  test.equal(seen[0], {url: '/items?token=abc', reqUrl: '/items?token=abc', id: '123456'});
+  test.equal(seen[1], {url: '/api/123456/items?token=abc'});
 });
