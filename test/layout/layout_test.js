@@ -448,3 +448,18 @@ Tinytest.add('Layout - region lifecycle callbacks fire', function (test) {
     test.isTrue(has('destroyed', 'footer'), 'footer region destroyed');
   });
 });
+
+Tinytest.add('Layout - yielding a region inside its own content raises a descriptive error', function (test) {
+  // A page template with a bare {{> yield}} (or the layout template itself
+  // rendered as a page) yields the main region from inside the main region's
+  // own content. Blaze.remove on the half-rendered view used to fail with the
+  // opaque "Expected template rendered with Blaze.render" (upstream #1218).
+  const layout = new Iron.Layout({template: 'LayoutOne'});
+
+  withRenderedTemplate(layout.create(), (el) => {
+    layout.render('SelfYieldPage');
+    test.throws(() => {
+      Tracker.flush({_throwFirstError: true});
+    }, /"main" region is yielded inside its own content/);
+  });
+});
