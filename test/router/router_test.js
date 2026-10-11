@@ -317,6 +317,49 @@ if (Meteor.isClient) {
     test.equal(seen[1], {id: '1', hash: 'new', v: 'a'}, 'the rerun sees the new hash');
   });
 
+  Tinytest.add('Router - a url the client cannot handle goes to the server, replacing the history entry when asked (upstream #1471)', function (test) {
+    var router = new Iron.Router({autoRender: false, autoStart: false});
+    var calls = [];
+
+    // the only route is a server one, so nothing is handled on the client
+    router.route('/(.*)', function () {}, {where: 'server'});
+    router._goToServer = function (url, replace) {
+      calls.push({url: url, replace: replace});
+    };
+
+    var originalHref = location.href;
+    var originalState = history.state;
+    try {
+      // a location with the {initial: true} history state renders the
+      // not-found template instead of going to the server; make sure this
+      // test does not depend on what earlier tests left in the state
+      Iron.Location.go(location.href, {replaceState: true, historyState: {}});
+      Tracker.flush();
+      // ...without that seeding counting as a replaceState navigation itself
+      Tracker.nonreactive(function () { Iron.Location.get().options.replaceState = false; });
+
+      router.start();
+      Tracker.flush();
+      test.equal(calls.length, 1, 'the current url is handed to the server on start');
+      test.equal(calls[0].replace, false, 'a plain navigation keeps the history entry');
+
+      router.go('/server-only/file?x=1#frag', null, {replaceState: true});
+      Tracker.flush();
+      test.equal(calls.length, 2);
+      test.equal(calls[1], {url: '/server-only/file?x=1#frag', replace: true}, 'replaceState is honoured and the fragment kept');
+
+      router.go('/server-only/other');
+      Tracker.flush();
+      test.equal(calls[2], {url: '/server-only/other', replace: false});
+      test.equal(location.href, originalHref, 'the url change was cancelled in favour of the server');
+    } finally {
+      router.stop();
+      // Location.go recorded the cancelled states as current; put it back
+      Iron.Location.go(originalHref, {replaceState: true, historyState: originalState});
+      Tracker.flush();
+    }
+  });
+
   Tinytest.add('Router - start after stop runs the current route again', function (test) {
     // start()'s autorun saw a (stopped) current controller and no previous
     // location, so it only reconfigured it: the route stayed stopped and

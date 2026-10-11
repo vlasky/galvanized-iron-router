@@ -538,6 +538,18 @@ Template.MyButton.events({
 
 This will change the browser's url to `/one` and run the corresponding route.
 
+`Router.go` pushes a new entry onto the browser history. Pass
+`{replaceState: true}` as the third argument to replace the current entry
+instead, so the back button skips the page you are leaving:
+
+```javascript
+Router.go('/one', null, {replaceState: true});
+```
+
+The `replaceState` option is also honoured when the url turns out to be a
+server route or an unknown url: the full-page navigation to the server then
+replaces the current history entry rather than adding one.
+
 ### Using Redirects
 You can redirect from one route to another from inside a route function by using
 the `redirect` method inside your route function.
@@ -551,6 +563,9 @@ Router.route('/two', function () {
   this.render('PageTwo');
 });
 ```
+
+`redirect` takes the same arguments as `Router.go` (a path or route name,
+params, and options such as `query`, `hash` and `replaceState`).
 
 ### Using Links to Server Routes
 Let's say you have a server route that you'd like to link to. For example, a
