@@ -698,7 +698,110 @@ Tinytest.add('Router - routes named after Array members do not corrupt the route
   test.isTrue(!!router.findRouteByName('length'), 'route named length is addressable by name');
   test.equal(typeof router.routes.push, 'function', 'Array.prototype.push not shadowed');
   test.isTrue(!!router.routes.ordinary, 'legacy Router.routes.name alias still works for safe names');
+
+  // an integer name is an array index: aliasing it made the routes array
+  // sparse (length 405 after /404) and findFirstRoute threw on the holes on
+  // every dispatch (upstream #986, #1188)
+  router.route('/404', function () {});
+  router.route('/5', function () {});
+  router.route('/01', function () {});
+  test.equal(router.routes.length, 7, 'integer-named routes do not make the routes array sparse');
+  test.isTrue(!!router.findRouteByName('404'), 'route named 404 is addressable by name');
+  test.isUndefined(router.routes['404'], 'an array index is not aliased');
+  test.isTrue(!!router.routes['01'], 'a digit string that is not an array index keeps its alias');
+  var found = router.findFirstRoute('/ordinary');
+  if (Meteor.isClient)
+    test.equal(found && found.getName(), 'ordinary', 'findFirstRoute still walks the routes array');
+  else
+    test.isNull(found, 'findFirstRoute walks the routes array without throwing');
 });
+
+if (Meteor.isClient) {
+  Tinytest.add('Router - go with a path applies the query and hash options (upstream #1610)', function (test) {
+    var router = new Iron.Router({autoRender: false, autoStart: false});
+    var go = Iron.Location.go;
+    var calls = [];
+
+    Iron.Location.go = function (path, options) {
+      calls.push({path: path, options: options});
+    };
+
+    try {
+      router.go('/items', null, {query: {a: 1, b: 'x y'}, hash: 'top'});
+      router.go('/items?a=1', null, {query: {b: 2}});
+      router.go('/items#old', null, {hash: 'new'});
+      router.go('/items#old', null, {hash: ''});
+      router.go('/items', null, {replaceState: true});
+      router.go('http://example.com/items', null, {query: {a: 1}});
+      router.go('/items?tag=a&tag=b&flag', null, {hash: 'top'});
+      router.go('/items#section?detail=1', null, {query: {a: 1}});
+      router.go('https://User:Secret@example.com/items', null, {query: {a: 1}});
+      router.go('/items?', null, {query: {a: 1}});
+    } finally {
+      Iron.Location.go = go;
+    }
+
+    test.equal(calls[0].path, '/items?a=1&b=x%20y#top', 'query and hash are appended to a path');
+    test.equal(calls[1].path, '/items?a=1&b=2', 'the query option is appended to a query in the path');
+    test.equal(calls[2].path, '/items#new', 'the hash option replaces a hash in the path');
+    test.equal(calls[3].path, '/items', 'an empty hash option removes the hash');
+    test.equal(calls[4].path, '/items', 'a path without query or hash options is untouched');
+    test.isTrue(calls[4].options.replaceState, 'other options still reach Location.go');
+    test.equal(calls[5].path, 'http://example.com/items?a=1', 'an absolute url keeps its origin');
+    test.equal(calls[6].path, '/items?tag=a&tag=b&flag#top', 'repeated keys and bare flags in the path survive');
+    test.equal(calls[7].path, '/items?a=1#section?detail=1', 'a fragment containing ? is left alone');
+    test.equal(calls[8].path, 'https://User:Secret@example.com/items?a=1', 'credentials keep their case');
+    test.equal(calls[9].path, '/items?a=1', 'a path ending in ? gets no empty key');
+  });
+
+  Tinytest.add('Router - the loading plugin template is used when a route has waitOn (upstream #1148)', function (test) {
+    var router = new Iron.Router({autoRender: false, autoStart: false});
+    var CustomLoading = new Template('RouterTestCustomLoading', function () { return 'custom loading'; });
+    var Loaded = new Template('RouterTestLoaded', function () { return 'loaded'; });
+    var isReady = false;
+    var readyDep = new Tracker.Dependency;
+    var handle = {ready: function () { readyDep.depend(); return isReady; }};
+
+    router.plugin('loading', {loadingTemplate: CustomLoading});
+    router.route('/wait', {
+      waitOn: function () { return handle; },
+      action: function () { this.render(Loaded); }
+    });
+
+    router.dispatch('/wait', {});
+    Tracker.flush();
+    test.equal(router._layout._regions.main.template(), CustomLoading,
+      'the plugin loadingTemplate renders while the waitOn is not ready');
+
+    isReady = true;
+    readyDep.changed();
+    Tracker.flush();
+    test.equal(router._layout._regions.main.template(), Loaded, 'the route renders once ready');
+
+    router._currentController.stop();
+  });
+
+  Tinytest.add('Router - current() observers are invalidated before the dispatch runs (upstream #1253)', function (test) {
+    var router = new Iron.Router({autoRender: false, autoStart: false});
+    var invalidatedDuringAction = null;
+    var comp = Tracker.autorun(function () { router.current(); });
+
+    router.route('/first', function () {
+      invalidatedDuringAction = comp.invalidated;
+      this.stop();
+    });
+
+    try {
+      router.dispatch('/first', {});
+      test.isTrue(invalidatedDuringAction,
+        'the dependency changed together with the value, not after the action');
+    } finally {
+      comp.stop();
+      if (router._currentController)
+        router._currentController.stop();
+    }
+  });
+}
 
 Tinytest.add('Router - registerController ignores inherited _name', function (test) {
   var router = new Iron.Router({autoStart: false, autoRender: false});
@@ -734,5 +837,38 @@ if (Meteor.isClient) {
       test.equal(order, ['action', 'after'], 'onAfterAction must run after the async action completes');
       onComplete();
     }, 60);
+  });
+}
+
+// A client route the server knows about (shared code), for the catch-all 404
+// test below: the catch-all must hand urls like this one on to Meteor.
+Router.route('/test-404/client-page', function () {});
+
+if (Meteor.isServer) {
+  // The Guide's recipe for answering unknown urls with a 404, scoped under
+  // /test-404/ so it cannot swallow the other test routes or the test page.
+  Router.route('/test-404/(.*)', function () {
+    if (this.willBeHandledOnClient())
+      return this.next();
+
+    this.response.statusCode = 404;
+    this.response.setHeader('Content-Type', 'text/plain');
+    this.response.end('Not found\n');
+  }, {where: 'server'});
+
+  Tinytest.addAsync('Router - server - a catch-all server route can answer unknown urls with a 404', function (test, onComplete) {
+    fetch(Meteor.absoluteUrl('test-404/missing-page')).then(function (res) {
+      test.equal(res.status, 404, 'an unknown url under the catch-all gets a 404');
+      return fetch(Meteor.absoluteUrl('test-404/client-page'));
+    }).then(function (res) {
+      test.equal(res.status, 200, 'a url with a client route is still served by Meteor');
+      return res.text();
+    }).then(function (html) {
+      test.isTrue(/<html/i.test(html), 'the client application was served');
+      onComplete();
+    }).catch(function (err) {
+      test.fail('request failed: ' + err.message);
+      onComplete();
+    });
   });
 }
