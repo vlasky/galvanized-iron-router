@@ -468,6 +468,49 @@ Tinytest.add('Controller - a layout contentFor block that goes away takes its co
   });
 });
 
+var showSwitchFooter = new ReactiveVar(true);
+var switchFooterFirst = new ReactiveVar(true);
+Template.ControllerSwitchFooterLayout.helpers({
+  showSwitchFooter: function () { return showSwitchFooter.get(); },
+  switchFooterFirst: function () { return switchFooterFirst.get(); },
+  firstFooterData: function () { return {label: 'first'}; },
+  secondFooterData: function () { return {label: 'second'}; }
+});
+
+Tinytest.add('Controller - a destroyed layout contentFor block only clears content that is still its own', function (test) {
+  var layout = new Iron.Layout({template: 'ControllerSwitchFooterLayout'});
+
+  showSwitchFooter.set(true);
+  switchFooterFirst.set(true);
+  withDiv(function (el) {
+    var view = Blaze.render(layout.create(), el);
+    try {
+      Tracker.flush();
+      test.equal(el.innerHTML.compact(), '|Footer-first');
+
+      // Another block for the same region, with the same template, takes
+      // over: Blaze renders it before it destroys the first one, whose
+      // cleanup compared template names and emptied the region.
+      switchFooterFirst.set(false);
+      Tracker.flush();
+      test.equal(el.innerHTML.compact(), '|Footer-second', 'the new block\'s content stays');
+
+      // a route (here: a plain render) puts the same template into the
+      // region with data of its own, then the layout's block goes away
+      layout.render('ControllerSwitchFooter', {to: 'footer', data: {label: 'route'}});
+      Tracker.flush();
+      test.equal(el.innerHTML.compact(), '|Footer-route');
+      showSwitchFooter.set(false);
+      Tracker.flush();
+      test.equal(el.innerHTML.compact(), '|Footer-route', 'the route\'s content stays');
+    } finally {
+      showSwitchFooter.set(true);
+      switchFooterFirst.set(true);
+      Blaze.remove(view);
+    }
+  });
+});
+
 Tinytest.add('Controller - a layout nav follows the controller data without a rebuild', function (test) {
   navCreated = 0;
   var layout = new Iron.Layout;

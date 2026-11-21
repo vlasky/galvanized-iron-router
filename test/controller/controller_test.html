@@ -65,3 +65,7 @@
 <template name="ControllerToggleFooterLayout">
   {{#if showStaticFooter}}{{#contentFor "footer"}}Toggle{{/contentFor}}{{/if}}{{> yield}}|{{> yield "footer"}}
 </template>
+<template name="ControllerSwitchFooterLayout">
+  {{#if showSwitchFooter}}{{#if switchFooterFirst}}{{> contentFor region="footer" template="ControllerSwitchFooter" data=firstFooterData}}{{else}}{{> contentFor region="footer" template="ControllerSwitchFooter" data=secondFooterData}}{{/if}}{{/if}}{{> yield}}|{{> yield "footer"}}
+</template>
+<template name="ControllerSwitchFooter">Footer-{{label}}</template>
