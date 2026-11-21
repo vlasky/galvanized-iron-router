@@ -329,6 +329,42 @@ Tinytest.add('Url - resolve handles every pattern the matcher accepts', function
   test.equal(new Url('/').resolve({}), '/');
 });
 
+Tinytest.add('Url - resolve never returns an empty path or a doubled slash', function (test) {
+  // every param optional and omitted: the root, as before 2.5.0
+  test.equal(new Url('/:page?').resolve({}), '/');
+  test.equal(new Url('/:page?').resolve({page: null}), '/');
+  test.equal(new Url('/:a?/:b?').resolve({}), '/');
+  test.equal(new Url('/:page(\\d+)?').resolve({}), '/');
+  test.equal(new Url('/:page?').resolve({}, {query: {q: '1'}, hash: 'top'}), '/?q=1#top');
+  test.equal(new Url('/:page?').resolve({page: '2'}), '/2');
+
+  // an empty string contributes nothing, as the old "//" collapse had it
+  test.equal(new Url('/a/:x?/b').resolve({x: ''}), '/a/b');
+  test.equal(new Url('/:a/:b').resolve({a: '', b: 'x'}), '/x');
+  test.equal(new Url('/post/:id').resolve({id: ''}), '/post');
+  test.equal(new Url('/:page?').resolve({page: ''}), '/');
+  // but a required param keeps a prefix that is not a slash
+  test.equal(new Url('/file.:ext(.*)').resolve({ext: ''}), '/file.');
+  test.isTrue(new Url('/file.:ext(.*)').test('/file.'));
+  test.equal(new Url('/file.:ext?').resolve({ext: ''}), '/file');
+});
+
+Tinytest.add('Url - resolve edge cases that worked before 2.5.0', function (test) {
+  // a catch-all value with a leading slash must not produce "//host/..."
+  test.equal(new Url('/:rest(.*)').resolve({rest: '/other.example/landing'}), '/other.example/landing');
+  test.equal(new Url('/*').resolve(['/other.example/x']), '/other.example/x');
+  test.equal(new Url('/files/:path*').resolve({path: 'a//b'}), '/files/a//b', 'slashes further in are kept');
+
+  // a custom capture is matched as the route matches: case-insensitively
+  test.equal(new Url('/p/:id(A/B)').resolve({id: 'a/b'}), '/p/a/b');
+  test.equal(new Url('/p/:id(A/B)', {sensitive: true}).resolve({id: 'a/b'}), '/p/a%2Fb');
+
+  // no params object: nothing has a value, whatever the param is called
+  test.isNull(new Url('/items/:slice').resolve());
+  test.isNull(new Url('/items/:length').resolve(null));
+  test.equal(new Url('/items/:slice?').resolve(), '/items');
+});
+
 Tinytest.add('Url - resolve leaves the query string and hash untouched', function (test) {
   var path = new Url('/posts');
   // slash normalisation used to run after these were appended
