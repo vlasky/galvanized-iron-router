@@ -51,6 +51,11 @@ declare module 'meteor/vlasky:galvanized-iron-router' {
     RegionTemplate,
     SubscriptionHandleWithWait,
     DynamicTemplateOptions,
+    PathOptions,
+    UrlOptions,
+    ConnectMiddleware,
+    ConnectErrorMiddleware,
+    UseOptions,
   };
 }
 
@@ -220,8 +225,11 @@ interface RouterOptions extends RouteOptions {
 
 /** Options for generating a path or url from a route */
 interface PathOptions {
-  query?: QueryParams;
+  /** An object of query parameters, or a ready-made query string */
+  query?: QueryParams | string | null;
   hash?: string;
+  /** Throw, instead of returning null, when a required param is missing */
+  throwOnMissingParams?: boolean;
 }
 
 interface UrlOptions extends PathOptions {
@@ -246,7 +254,7 @@ declare class Route {
   getName(): string;
 
   /** Get the path with parameters substituted (includes the ROOT_URL path prefix) */
-  path(params?: RouteParams, options?: PathOptions): string;
+  path(params?: RouteParams, options?: PathOptions): string | null;
 
   /** Get the full URL with parameters substituted */
   url(params?: RouteParams, options?: UrlOptions): string;
@@ -397,7 +405,7 @@ declare class RouteController extends Controller {
   data?(): any;
 
   /** Continue to next middleware/hook */
-  next(): void;
+  next(err?: any): void;
 
   // Static methods
   static extend(props: RouteControllerExtendProps): typeof RouteController;
@@ -503,6 +511,12 @@ declare class Layout extends DynamicTemplate {
 
   /** Clear a specific region or main region */
   clear(region?: string): Layout;
+
+  /**
+   * Put a region back to the layout's own content when a contentFor block in
+   * the layout template fills it, or clear it otherwise.
+   */
+  restoreRegion(region: string): Layout;
 
   /** Clear all regions */
   clearAll(): Layout;
@@ -841,6 +855,12 @@ interface Router {
    */
   _goToServer(url: string, replace: boolean): void;
 
+  /** Client: scroll to the element a url fragment names. Overridable. */
+  _scrollToHash(hashValue: string): void;
+
+  /** Server: install the body parsers. Overridable to configure your own. */
+  configureBodyParsers(): void;
+
   /** Create a controller for a URL */
   createController(url: string, context?: object): RouteController;
 
@@ -884,7 +904,7 @@ interface Router {
   subscriptions(hook: HookFunction | string, options?: HookOptions): Router;
 
   /** Navigate to a route or URL */
-  go(routeNameOrPath: string, params?: RouteParams, options?: { query?: QueryParams; hash?: string; replaceState?: boolean }): void;
+  go(routeNameOrPath: string, params?: RouteParams, options?: { query?: QueryParams | string | null; hash?: string; replaceState?: boolean; historyState?: any }): void;
 
   /** Get the current controller */
   current(): RouteController | null;
@@ -1024,4 +1044,9 @@ export {
   RegionTemplate,
   SubscriptionHandleWithWait,
   DynamicTemplateOptions,
+  PathOptions,
+  UrlOptions,
+  ConnectMiddleware,
+  ConnectErrorMiddleware,
+  UseOptions,
 };
