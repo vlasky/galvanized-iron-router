@@ -349,6 +349,14 @@ Tinytest.add('Url - resolve never returns an empty path or a doubled slash', fun
   test.equal(new Url('/file.:ext?').resolve({ext: ''}), '/file');
 });
 
+Tinytest.add('Url - a path that opens with two slashes is a path', function (test) {
+  test.equal(Url.normalize('//x/posts?a=1#b'), '//x/posts');
+  test.equal(Url.normalize(Url.normalize('//x/posts/')), '//x/posts', 'normalising twice changes nothing');
+  test.isFalse(new Url('/posts').test('//x/posts'), 'its first segment is not a host');
+  test.isFalse(new Url('/').test('//x'));
+  test.isTrue(new Url('/posts').test('http://x/posts'), 'a url with a scheme still has a host');
+});
+
 Tinytest.add('Url - isSameOrigin treats an explicit default port as the same origin', function (test) {
   test.isTrue(Url.isSameOrigin('http://example.com:80/posts', 'http://example.com/'));
   test.isTrue(Url.isSameOrigin('https://Example.com:443/posts', 'https://example.com/'));

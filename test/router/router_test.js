@@ -1273,6 +1273,35 @@ if (Meteor.isServer) {
     onBeforeAction: function (req, res, next) { setTimeout(next, 5); }
   });
 
+  // a global after hook (logging, say) is not the route's own: with one
+  // registered, the route is still passed on rather than left hanging
+  Router.route('/test-no-action-global-after', {where: 'server', name: 'testNoActionGlobalAfter'});
+  Router.onAfterAction(function () {}, {only: ['testNoActionGlobalAfter'], where: 'server'});
+
+  // a route's hooks see the bare path, as they always have: no trailing
+  // slash and no query string (a hook may compare req.url)
+  var hookUrls = [];
+  Router.route('/test-hook-url', function () {
+    this.response.end(JSON.stringify({hook: hookUrls.pop(), action: this.url}));
+  }, {
+    where: 'server',
+    name: 'testHookUrl',
+    onBeforeAction: function (req, res, next) { hookUrls.push(req.url); next(); }
+  });
+
+  Tinytest.addAsync('Router - server - hooks see the bare path, the action the whole url', function (test, onComplete) {
+    fetch(Meteor.absoluteUrl('test-hook-url/?a=1&b=2')).then(function (res) {
+      return res.json();
+    }).then(function (seen) {
+      test.equal(seen.hook, '/test-hook-url');
+      test.equal(seen.action, '/test-hook-url/?a=1&b=2');
+      onComplete();
+    }).catch(function (err) {
+      test.fail('request failed: ' + err.message);
+      onComplete();
+    });
+  });
+
   Tinytest.addAsync('Router - server - a route with no action that answers from a hook is not passed on', function (test, onComplete) {
     var warnings = [];
     var originalWarn = console.warn;
@@ -1297,6 +1326,11 @@ if (Meteor.isServer) {
       return res.text();
     }).then(function (body) {
       test.isTrue(/<html/i.test(body), 'a late default action still passes the request on');
+      return fetch(Meteor.absoluteUrl('test-no-action-global-after'));
+    }).then(function (res) {
+      return res.text();
+    }).then(function (body) {
+      test.isTrue(/<html/i.test(body), 'a global after hook does not stop the hand-off');
       test.equal(warnings.filter(function (w) { return /testNoAction(After|AfterAsync|Before)"/.test(w); }), [], 'no warning: the request was answered');
       console.warn = originalWarn;
       onComplete();
