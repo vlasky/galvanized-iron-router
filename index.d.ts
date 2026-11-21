@@ -257,7 +257,7 @@ declare class Route {
   path(params?: RouteParams, options?: PathOptions): string | null;
 
   /** Get the full URL with parameters substituted */
-  url(params?: RouteParams, options?: UrlOptions): string;
+  url(params?: RouteParams, options?: UrlOptions): string | null;
 
   /** Extract parameters from a path */
   params(path: string): ControllerParams;
@@ -558,7 +558,7 @@ declare class Handler {
   where?: string;
   test(path: string): boolean;
   params(path: string): ControllerParams;
-  resolve(params?: RouteParams, options?: { query?: QueryParams; hash?: string }): string | null;
+  resolve(params?: RouteParams, options?: PathOptions): string | null;
   clone(): Handler;
 }
 
@@ -647,7 +647,7 @@ declare class Url {
   params(path: string): ControllerParams;
 
   /** Resolve URL with parameters */
-  resolve(params?: RouteParams, options?: { query?: QueryParams; hash?: string; throwOnMissingParams?: boolean }): string | null;
+  resolve(params?: RouteParams, options?: PathOptions): string | null;
 
   // Static methods
   static normalize(url: string | RegExp): string | RegExp;

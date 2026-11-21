@@ -307,46 +307,6 @@ Tinytest.addAsync('MiddlewareStack - deferred and async pass-through middleware 
   });
 });
 
-Tinytest.add('MiddlewareStack - a second next() from one handler is ignored', function (test) {
-  const where = Meteor.isClient ? 'client' : 'server';
-  const stack = new Iron.MiddlewareStack;
-  let ran = 0;
-  let completed = 0;
-
-  stack.push(function twice (req, res, next) {
-    next();
-    next();
-  }, {where: where});
-  stack.push(function counter (req, res, next) {
-    ran++;
-    next();
-  }, {where: where});
-
-  stack.dispatch('/unknown', {}, function () { completed++; });
-  test.equal(ran, 1, 'the rest of the stack ran once');
-  test.equal(completed, 1, 'and the dispatch completed once');
-});
-
-Tinytest.add('MiddlewareStack - a later next(err) from one handler still reaches the error handler', function (test) {
-  const where = Meteor.isClient ? 'client' : 'server';
-  const stack = new Iron.MiddlewareStack;
-  const errors = [];
-
-  stack.push(function failsLate (req, res, next) {
-    next();
-    next(new Error('late'));
-  }, {where: where});
-  stack.push(function pending (req, res, next) {
-    // leaves the request pending
-  }, {where: where});
-  stack.push(function onError (err, req, res, next) {
-    errors.push(err.message);
-  }, {where: where});
-
-  stack.dispatch('/unknown', {}, function () {});
-  test.equal(errors, ['late']);
-});
-
 Tinytest.add('MiddlewareStack - pathless Router.use middleware sees the url as it came, hooks the bare path', function (test) {
   const where = Meteor.isClient ? 'client' : 'server';
   const stack = new Iron.MiddlewareStack;

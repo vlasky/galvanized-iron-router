@@ -1108,7 +1108,7 @@ Tinytest.add('Router - path and url carry the configured rootUrlPathPrefix (upst
     test.equal(router.url('prefixTest', {id: 1}, {host: 'https://other.example/base'}), 'https://other.example/base/beta/prefix-test/1', 'an unrelated base path is kept');
     // a missing param gives no path; url() must not throw on it
     test.isNull(router.path('prefixTest', {}));
-    router.url('prefixTest', {});
+    test.isNull(router.url('prefixTest', {}), 'nor return the origin followed by "null"');
     // a generated (browser) path goes back through the route's own params()
     test.equal(router.findRouteByName('prefixTest').params(router.path('prefixTest', {id: 7})).id, '7');
     test.equal(router.findRouteByName('prefixTest').params('/prefix-test/8').id, '8', 'an application path still works');
@@ -1154,6 +1154,10 @@ if (Meteor.isClient) {
       // The test page itself sits outside /beta. The page the application
       // runs on is never handed to the server, which would reload it for
       // ever (a prefix that does not match the deployment): it is routed.
+      // (That page is the location marked initial, as after a real load;
+      // earlier tests have moved this page's location about.)
+      Iron.Location.go(originalHref, {replaceState: true, historyState: {initial: true}});
+      Tracker.flush();
       router.start();
       Tracker.flush();
       test.equal(seen[0], {page: location.pathname + location.search + location.hash}, 'the first location is routed even outside the prefix');

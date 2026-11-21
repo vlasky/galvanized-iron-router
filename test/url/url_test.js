@@ -346,6 +346,9 @@ Tinytest.add('Url - resolve never returns an empty path or a doubled slash', fun
   // but a required param keeps a prefix that is not a slash
   test.equal(new Url('/file.:ext(.*)').resolve({ext: ''}), '/file.');
   test.isTrue(new Url('/file.:ext(.*)').test('/file.'));
+  // nor does a custom capture that matches nothing lose its slashes
+  test.equal(new Url('/a/:x(.*)/b').resolve({x: ''}), '/a//b');
+  test.isTrue(new Url('/a/:x(.*)/b').test('/a//b'));
   test.equal(new Url('/file.:ext?').resolve({ext: ''}), '/file.', 'as before 2.5.0; only an omitted value takes the dot with it');
   // the slash a following piece needs is never dropped
   test.equal(new Url('/:slug.html').resolve({slug: ''}), '/.html');
