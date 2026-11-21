@@ -1289,6 +1289,29 @@ if (Meteor.isClient) {
   });
 }
 
+Tinytest.add('Router - use handlers take no name from their function or path', function (test) {
+  var router = new Iron.Router({autoRender: false, autoStart: false});
+  var makeApp = function () { return function router (req, res, next) { next(); }; };
+
+  // two sub-applications with the same function name (express.Router())
+  router.use('/use-a', makeApp());
+  router.use('/use-b', makeApp());
+  // a middleware and an error handler on one mount path
+  router.use('/use-api', function (req, res, next) { next(); });
+  router.use('/use-api', function (err, req, res, next) { next(err); });
+  // a route at the mount path, and one named like a pathless middleware
+  router.route('/use-api', function () {}, {where: 'server'});
+  router.use(function useAuth (req, res, next) { next(); });
+  router.route('/useAuth', function () {}, {where: 'server'});
+  test.equal(router.findRouteByName('use-api').getName(), 'use-api');
+
+  // an explicit name is still a name
+  router.use(function (req, res, next) { next(); }, {name: 'useNamed'});
+  test.throws(function () {
+    router.route('/x', function () {}, {name: 'useNamed'});
+  }, /Handler with name 'useNamed' already exists/);
+});
+
 Tinytest.add('Router - use requires a function', function (test) {
   test.throws(function () { Router.use('/x'); }, /function/);
   test.throws(function () { Router.use(42, function () {}); }, /path/);

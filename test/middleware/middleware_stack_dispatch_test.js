@@ -306,3 +306,70 @@ Tinytest.addAsync('MiddlewareStack - deferred and async pass-through middleware 
     onComplete();
   });
 });
+
+Tinytest.add('MiddlewareStack - a second next() from one handler is ignored', function (test) {
+  const where = Meteor.isClient ? 'client' : 'server';
+  const stack = new Iron.MiddlewareStack;
+  let ran = 0;
+  let completed = 0;
+
+  stack.push(function twice (req, res, next) {
+    next();
+    next();
+  }, {where: where});
+  stack.push(function counter (req, res, next) {
+    ran++;
+    next();
+  }, {where: where});
+
+  stack.dispatch('/unknown', {}, function () { completed++; });
+  test.equal(ran, 1, 'the rest of the stack ran once');
+  test.equal(completed, 1, 'and the dispatch completed once');
+});
+
+Tinytest.add('MiddlewareStack - a later next(err) from one handler still reaches the error handler', function (test) {
+  const where = Meteor.isClient ? 'client' : 'server';
+  const stack = new Iron.MiddlewareStack;
+  const errors = [];
+
+  stack.push(function failsLate (req, res, next) {
+    next();
+    next(new Error('late'));
+  }, {where: where});
+  stack.push(function pending (req, res, next) {
+    // leaves the request pending
+  }, {where: where});
+  stack.push(function onError (err, req, res, next) {
+    errors.push(err.message);
+  }, {where: where});
+
+  stack.dispatch('/unknown', {}, function () {});
+  test.equal(errors, ['late']);
+});
+
+Tinytest.add('MiddlewareStack - pathless Router.use middleware sees the url as it came, hooks the bare path', function (test) {
+  const where = Meteor.isClient ? 'client' : 'server';
+  const stack = new Iron.MiddlewareStack;
+  const seen = [];
+
+  // Router.use(fn) (the anonymous option) is mounted at the root: nothing
+  // to strip, so no normalising either (a trailing slash was dropped, and a
+  // leading "//" read as a host)
+  stack.push(function root (req, res, next) {
+    seen.push(req.url);
+    next();
+  }, {where: where, anonymous: true});
+  // a route's hook is pathless too, and keeps the bare normalised path it
+  // has always seen: hooks compare it (req.url === '/admin')
+  stack.push(function hook (req, res, next) {
+    seen.push(req.url);
+    next();
+  }, {where: where});
+  stack.push('/mounted', function mounted (req, res, next) {
+    seen.push(req.url);
+    next();
+  }, {where: where, mount: true});
+
+  stack.dispatch('/mounted/x/?a=1', {}, function () {});
+  test.equal(seen, ['/mounted/x/?a=1', '/mounted/x', '/x?a=1']);
+});
