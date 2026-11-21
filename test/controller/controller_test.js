@@ -468,6 +468,43 @@ Tinytest.add('Controller - a layout contentFor block that goes away takes its co
   });
 });
 
+Tinytest.add('Controller - a route\'s own footer beats the layout\'s contentFor on a first load too', function (test) {
+  // as on a page load: the route is dispatched before the layout is in the
+  // page, so the layout's own block renders after the route has rendered
+  [
+    ['/first-load-footer/render', 'PageA|Override-R'],
+    ['/first-load-footer/page', 'PageD|FooterD']
+  ].forEach(function (pair) {
+    var router = new Iron.Router({autoRender: false, autoStart: false, layoutTemplate: 'ControllerStaticFooterLayout'});
+    var controller;
+
+    router.route('/first-load-footer/render', function () {
+      this.render('ControllerStaticFooterPageA');
+      this.render('ControllerStaticFooterOverride', {to: 'footer', data: {footerLabel: 'R'}});
+    });
+    router.route('/first-load-footer/page', function () { this.render('ControllerStaticFooterPageD'); });
+    router.route('/first-load-footer/plain', function () { this.render('ControllerStaticFooterPageB'); });
+
+    withDiv(function (el) {
+      var view;
+      try {
+        controller = router.dispatch(pair[0], {});
+        Tracker.flush();
+        view = Blaze.render(router._layout.create(), el);
+        Tracker.flush();
+        test.equal(el.innerHTML.compact(), pair[1], pair[0]);
+
+        controller = router.dispatch('/first-load-footer/plain', {});
+        Tracker.flush();
+        test.equal(el.innerHTML.compact(), 'PageB|Static-', 'the layout\'s content comes back afterwards');
+      } finally {
+        if (controller) controller.stop();
+        if (view) Blaze.remove(view);
+      }
+    });
+  });
+});
+
 var showSwitchFooter = new ReactiveVar(true);
 var switchFooterFirst = new ReactiveVar(true);
 Template.ControllerSwitchFooterLayout.helpers({
