@@ -1266,11 +1266,19 @@ if (Meteor.isServer) {
       this.response.end('AFTER-ASYNC');
     }
   });
-  // a callback-style before hook reaches the default action late
-  Router.route('/test-no-action-late', {
+  // a callback-style global before hook reaches the default action late
+  Router.route('/test-no-action-late', {where: 'server', name: 'testNoActionLate'});
+  Router.onBeforeAction(function (req, res, next) { setTimeout(next, 5); }, {only: ['testNoActionLate'], where: 'server'});
+  // a hook of the route's own may be its real handler: it calls this.next(),
+  // as hooks are told to, and answers later; the request is not passed on
+  Router.route('/test-no-action-own-hook', {
     where: 'server',
-    name: 'testNoActionLate',
-    onBeforeAction: function (req, res, next) { setTimeout(next, 5); }
+    name: 'testNoActionOwnHook',
+    onBeforeAction: function () {
+      var res = this.response;
+      setTimeout(function () { res.end('OWN-HOOK-LATER'); }, 30);
+      this.next();
+    }
   });
 
   // a global after hook (logging, say) is not the route's own: with one
@@ -1331,6 +1339,11 @@ if (Meteor.isServer) {
       return res.text();
     }).then(function (body) {
       test.isTrue(/<html/i.test(body), 'a global after hook does not stop the hand-off');
+      return fetch(Meteor.absoluteUrl('test-no-action-own-hook'));
+    }).then(function (res) {
+      return res.text();
+    }).then(function (body) {
+      test.equal(body, 'OWN-HOOK-LATER', 'a route with a hook of its own is left to that hook');
       test.equal(warnings.filter(function (w) { return /testNoAction(After|AfterAsync|Before)"/.test(w); }), [], 'no warning: the request was answered');
       console.warn = originalWarn;
       onComplete();

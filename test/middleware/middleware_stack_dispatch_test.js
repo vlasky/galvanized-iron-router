@@ -352,13 +352,21 @@ Tinytest.add('MiddlewareStack - pathless Router.use middleware sees the url as i
   const stack = new Iron.MiddlewareStack;
   const seen = [];
 
-  // Router.use(fn) (the anonymous option) is mounted at the root: nothing
-  // to strip, so no normalising either (a trailing slash was dropped, and a
-  // leading "//" read as a host)
+  // Router.use middleware (the connect option) at the root, pathless or
+  // given "/", named or not: nothing to strip, so no normalising either (a
+  // trailing slash was dropped)
   stack.push(function root (req, res, next) {
     seen.push(req.url);
     next();
-  }, {where: where, anonymous: true});
+  }, {where: where, connect: true, anonymous: true});
+  stack.push(function rootNamed (req, res, next) {
+    seen.push(req.url);
+    next();
+  }, {where: where, connect: true, name: 'rootNamed'});
+  stack.push('/', function rootPath (req, res, next) {
+    seen.push(req.url);
+    next();
+  }, {where: where, connect: true, mount: true, anonymous: true});
   // a route's hook is pathless too, and keeps the bare normalised path it
   // has always seen: hooks compare it (req.url === '/admin')
   stack.push(function hook (req, res, next) {
@@ -371,5 +379,13 @@ Tinytest.add('MiddlewareStack - pathless Router.use middleware sees the url as i
   }, {where: where, mount: true});
 
   stack.dispatch('/mounted/x/?a=1', {}, function () {});
-  test.equal(seen, ['/mounted/x/?a=1', '/mounted/x', '/x?a=1']);
+  test.equal(seen, ['/mounted/x/?a=1', '/mounted/x/?a=1', '/mounted/x/?a=1', '/mounted/x', '/x?a=1']);
+
+  // a hook keeps the bare path after the clone a route's stack is built
+  // with (clone() rebuilds the handler from its "/" path)
+  const cloned = new Iron.MiddlewareStack;
+  const clonedSeen = [];
+  cloned.append(function hook (req, res, next) { clonedSeen.push(req.url); next(); }, {where: where});
+  cloned.concat(new Iron.MiddlewareStack).dispatch('/mounted/x/?a=1', {}, function () {});
+  test.equal(clonedSeen, ['/mounted/x']);
 });
