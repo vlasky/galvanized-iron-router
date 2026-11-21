@@ -1242,6 +1242,71 @@ if (Meteor.isServer) {
     this.next();
   }, {only: ['testNoActionAsync']});
 
+  // an action-less route that answers from a hook is complete: the request
+  // must not also be passed on (it was, ahead of onAfterAction, so the next
+  // handler answered first and the hook then wrote to a finished response)
+  Router.route('/test-no-action-after', {
+    where: 'server',
+    name: 'testNoActionAfter',
+    onAfterAction: function () { this.response.end('AFTER'); }
+  });
+  Router.route('/test-no-action-before', {
+    where: 'server',
+    name: 'testNoActionBefore',
+    onBeforeAction: function () { this.response.end('BEFORE'); this.next(); }
+  });
+
+  // an after hook may answer later, which nothing can wait for: a route
+  // with after hooks is left alone, as before 2.5.0
+  Router.route('/test-no-action-after-async', {
+    where: 'server',
+    name: 'testNoActionAfterAsync',
+    onAfterAction: async function () {
+      await new Promise(function (resolve) { setTimeout(resolve, 5); });
+      this.response.end('AFTER-ASYNC');
+    }
+  });
+  // a callback-style before hook reaches the default action late
+  Router.route('/test-no-action-late', {
+    where: 'server',
+    name: 'testNoActionLate',
+    onBeforeAction: function (req, res, next) { setTimeout(next, 5); }
+  });
+
+  Tinytest.addAsync('Router - server - a route with no action that answers from a hook is not passed on', function (test, onComplete) {
+    var warnings = [];
+    var originalWarn = console.warn;
+    console.warn = function (message) { warnings.push(String(message)); };
+
+    fetch(Meteor.absoluteUrl('test-no-action-after')).then(function (res) {
+      return res.text();
+    }).then(function (body) {
+      test.equal(body, 'AFTER', 'onAfterAction answered');
+      return fetch(Meteor.absoluteUrl('test-no-action-before'));
+    }).then(function (res) {
+      return res.text();
+    }).then(function (body) {
+      test.equal(body, 'BEFORE', 'onBeforeAction answered');
+      return fetch(Meteor.absoluteUrl('test-no-action-after-async'));
+    }).then(function (res) {
+      return res.text();
+    }).then(function (body) {
+      test.equal(body, 'AFTER-ASYNC', 'an async onAfterAction answered');
+      return fetch(Meteor.absoluteUrl('test-no-action-late'));
+    }).then(function (res) {
+      return res.text();
+    }).then(function (body) {
+      test.isTrue(/<html/i.test(body), 'a late default action still passes the request on');
+      test.equal(warnings.filter(function (w) { return /testNoAction(After|AfterAsync|Before)"/.test(w); }), [], 'no warning: the request was answered');
+      console.warn = originalWarn;
+      onComplete();
+    }).catch(function (err) {
+      console.warn = originalWarn;
+      test.fail('request failed: ' + err.message);
+      onComplete();
+    });
+  });
+
   Tinytest.addAsync('Router - server - a route with no action passes the request on with a warning', function (test, onComplete) {
     var warnings = [];
     var originalWarn = console.warn;
