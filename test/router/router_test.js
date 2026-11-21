@@ -390,6 +390,13 @@ if (Meteor.isClient) {
       Tracker.flush();
       test.equal(urls[2], '/relative-url-test/2?y=2', 'an absolute url is dispatched relative');
       test.equal(router.current().url, '/relative-url-test/2?y=2');
+
+      // a path that opens with "//" is not a protocol-relative url: it keeps
+      // its origin so that its first segment is not read as a host
+      Iron.Location.go(location.origin + '//relative-url-test/3');
+      Tracker.flush();
+      test.equal(urls[3], location.origin + '//relative-url-test/3');
+      test.equal(Iron.Url.parse(urls[3]).pathname, '//relative-url-test/3', 'the whole path is still the path');
     } finally {
       router.stop();
       Iron.Location.go(originalHref, {replaceState: true, historyState: history.state});
@@ -1087,6 +1094,7 @@ Tinytest.add('Router - path and url carry the configured rootUrlPathPrefix (upst
   var origin = Meteor.absoluteUrl().replace(/^([a-z]+:\/\/[^/]+).*$/i, '$1');
 
   router.route('/prefix-test/:id', {name: 'prefixTest'});
+  router.route('/beta/items', {name: 'prefixOwnSegment'});
 
   try {
     test.equal(router.path('prefixTest', {id: 1}), '/prefix-test/1', 'no prefix by default');
@@ -1098,9 +1106,20 @@ Tinytest.add('Router - path and url carry the configured rootUrlPathPrefix (upst
     test.equal(router.url('prefixTest', {id: 1}, {host: 'https://other.example/'}), 'https://other.example/beta/prefix-test/1');
     test.equal(router.url('prefixTest', {id: 1}, {host: 'https://other.example/beta/'}), 'https://other.example/beta/prefix-test/1', 'a host given with the prefix does not repeat it');
     test.equal(router.url('prefixTest', {id: 1}, {host: 'https://other.example/base'}), 'https://other.example/base/beta/prefix-test/1', 'an unrelated base path is kept');
+    // a missing param gives no path; url() must not throw on it
+    test.isNull(router.path('prefixTest', {}));
+    router.url('prefixTest', {});
+    // a generated (browser) path goes back through the route's own params()
+    test.equal(router.findRouteByName('prefixTest').params(router.path('prefixTest', {id: 7})).id, '7');
+    test.equal(router.findRouteByName('prefixTest').params('/prefix-test/8').id, '8', 'an application path still works');
+    test.equal(router.url('prefixTest', {id: 1}, {host: 'https://other.example'}), 'https://other.example/beta/prefix-test/1');
+    // a route whose own first segment is the prefix still gets the prefix
+    test.equal(router.path('prefixOwnSegment'), '/beta/beta/items', 'the prefix is added to every generated path');
+    test.equal(Iron.Url.withoutRootUrlPathPrefix(router.path('prefixOwnSegment')), '/beta/items');
 
     router.configure({rootUrlPathPrefix: false});
     test.equal(router.path('prefixTest', {id: 2}), '/prefix-test/2', 'false opts out of the prefix');
+    test.equal(router.url('prefixTest', {id: 2}), Meteor.absoluteUrl('prefix-test/2'), 'and url() uses ROOT_URL whole again, as before 2.5.0');
 
     test.throws(function () {
       router.configure({rootUrlPathPrefix: 42});
@@ -1127,16 +1146,17 @@ if (Meteor.isClient) {
       seen.push({id: this.params.id, pathname: Iron.Url.parse(this.url).pathname});
     }, {name: 'prefixNav'});
     // matches the test page's own url so start() does not hand off to the server
-    router.route('/(.*)', function () {});
+    router.route('/(.*)', function () { seen.push({page: this.url}); });
     router._goToServer = function (url) { seen.push({server: url}); };
 
     try {
       router.configure({rootUrlPathPrefix: '/beta'});
-      // the test page itself sits outside /beta: such a url is not routed
-      // but left to the browser (Meteor would answer it with "Unknown path")
+      // The test page itself sits outside /beta. The page the application
+      // runs on is never handed to the server, which would reload it for
+      // ever (a prefix that does not match the deployment): it is routed.
       router.start();
       Tracker.flush();
-      test.equal(seen[0], {server: location.pathname + location.search + location.hash}, 'a browser url outside the prefix goes to the server');
+      test.equal(seen[0], {page: location.pathname + location.search + location.hash}, 'the first location is routed even outside the prefix');
 
       router.go('/prefix-nav/1');
       Tracker.flush();

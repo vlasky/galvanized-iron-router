@@ -451,7 +451,33 @@ Tinytest.add('Url - root url path prefix helpers', function (test) {
     if (!hadConfig)
       globalThis.__meteor_runtime_config__ = config = {};
     config.ROOT_URL_PATH_PREFIX = '/rc';
-    test.equal(Url.rootUrlPathPrefix(), '/rc');
+    if (typeof window === 'undefined') {
+      test.equal(Url.rootUrlPathPrefix(), '/rc');
+    } else {
+      // on the client it only applies to a page loaded below it: a Cordova
+      // webview serves an application built for https://h/rc from "/"
+      var pagePathname = Url._pagePathname;
+      try {
+        test.equal(Url.rootUrlPathPrefix(), '', 'the test page is not below /rc');
+        test.equal(Url.withRootUrlPathPrefix('/hello'), '/hello');
+        test.isTrue(Url.isWithinRootUrlPathPrefix('/'), 'so nothing is outside the application');
+
+        Url._configPrefixChecked = undefined;
+        Url._pagePathname = function () { return '/rc/posts'; };
+        test.equal(Url.rootUrlPathPrefix(), '/rc', 'a page below the prefix');
+
+        Url._configPrefixChecked = undefined;
+        Url._pagePathname = function () { return '/rc'; };
+        test.equal(Url.rootUrlPathPrefix(), '/rc', 'the application root');
+
+        Url._configPrefixChecked = undefined;
+        Url._pagePathname = function () { return '/rcx/posts'; };
+        test.equal(Url.rootUrlPathPrefix(), '', 'a sibling path is not below the prefix');
+      } finally {
+        Url._pagePathname = pagePathname;
+        Url._configPrefixChecked = undefined;
+      }
+    }
     delete config.ROOT_URL_PATH_PREFIX;
     test.equal(Url.rootUrlPathPrefix(), '');
     test.equal(Url.withRootUrlPathPrefix('/hello'), '/hello', 'no prefix, no change');

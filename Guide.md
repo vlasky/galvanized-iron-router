@@ -1108,7 +1108,8 @@ without it. Since 2.5.0 the client does the same:
   navigates to `/beta/hello`. A path already below the prefix (the output of
   `Router.path`, an `href`, `location.pathname`) is accepted as it is, so an
   application route whose own first segment is the prefix (`/beta/...` under
-  `/beta`) should be navigated to by name. Route names work as before.
+  `/beta`) should be navigated to by name, which always adds the prefix
+  (`/beta/beta/...`). Route names work as before.
 * A same-origin link outside the prefix, and a `Router.go` to an absolute url
   on another origin, are left to the browser: they belong to another
   application, and Meteor answers a url outside the prefix with "Unknown path".
@@ -1118,7 +1119,10 @@ without it. Since 2.5.0 the client does the same:
 * In `useHashPaths` mode the application root is `https://example.com/beta/`
   and the hash path is the application path: `https://example.com/beta#!hello`.
 
-Nothing changes when `ROOT_URL` has no path. An application that worked around
+Nothing changes when `ROOT_URL` has no path. On the client the prefix from
+`ROOT_URL` is only used when the page was loaded below it: a Cordova build made
+with `--server https://example.com/beta` carries the prefix but runs from the
+root of its webview, and routes there as an application without one. An application that worked around
 the old behaviour by writing the prefix into its client routes can keep them
 with `Router.configure({rootUrlPathPrefix: false})`, which turns the handling
 off on the side where it is called; a string value sets a prefix of your own
