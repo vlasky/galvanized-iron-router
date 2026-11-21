@@ -349,6 +349,14 @@ Tinytest.add('Url - resolve never returns an empty path or a doubled slash', fun
   test.equal(new Url('/file.:ext?').resolve({ext: ''}), '/file');
 });
 
+Tinytest.add('Url - isSameOrigin treats an explicit default port as the same origin', function (test) {
+  test.isTrue(Url.isSameOrigin('http://example.com:80/posts', 'http://example.com/'));
+  test.isTrue(Url.isSameOrigin('https://Example.com:443/posts', 'https://example.com/'));
+  test.isFalse(Url.isSameOrigin('https://example.com:80/posts', 'https://example.com/'));
+  test.isFalse(Url.isSameOrigin('http://example.com:8080/', 'http://example.com/'));
+  test.isFalse(Url.isSameOrigin('http://example.com/', 'https://example.com/'));
+});
+
 Tinytest.add('Url - resolve edge cases that worked before 2.5.0', function (test) {
   // a catch-all value with a leading slash must not produce "//host/..."
   test.equal(new Url('/:rest(.*)').resolve({rest: '/other.example/landing'}), '/other.example/landing');

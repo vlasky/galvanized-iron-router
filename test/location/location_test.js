@@ -21,6 +21,8 @@ Tinytest.add('Location - urlToHashStyle', function (test) {
 Tinytest.add('Location - urlFromHashStyle', function (test) {
   URLS.forEach(function(urls) {
     test.equal(urlFromHashStyle(urls.hash), urls.base);
+    // a slash after the "!" is the same hash path, not a "//" path
+    test.equal(urlFromHashStyle('http://host:port/#!/items/5?q=1'), 'http://host:port/items/5?q=1');
   });
 });
 
